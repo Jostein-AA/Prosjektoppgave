@@ -15,23 +15,56 @@ library(tidyverse)
 
 ```{r load_data}
 #Areas in Ohio, needed for adjacency matrix
-ohio_graph_path <- "H2023\\Code\\ohioadj.asc"
+ohio_graph_path <- "ohioadj.asc"
 
-#
-data.inla <- read.table("http://faculty.washington.edu/jonno/SISMIDmaterial/ohiodata2_spacetime.txt",header=T)
-head(data.inla)
-
-
+#Load data
+raw_df <- read.table("http://faculty.washington.edu/jonno/SISMIDmaterial/ohiodata2_spacetime.txt",header=T)
+head(raw_df)
 ```
 
-```{r}
+```{r data_formatting}
+n <- length(unique(raw_df$county))   # Number of areas
+T <- length(unique(raw_df$time))     # Number of time points
 
+#Format data for INLA
+ohio_df <- data.frame(county = raw_df$county,
+                      year = raw_df$time,
+                      expected = raw_df$E,
+                      deaths = raw_df$Y)
 
+#Create copies of time for unstructured/structured random effects
+ohio_df$time.unstructured <- ohio_df$time.structured <- ohio_df$year
+
+head(ohio_df)
 ```
 
-```{r}
+```{r Adjacency_matrix}
+#Load the adjacency file
+adjacency <- read.table(ohio_graph_path, header = T)
 
+#Find how many areas are contiguous to each area
+n_i = adjacency$num
 
+#Making the adjancency matrix, referred to as K_theta
+#----------------------------------------------------
+K_theta = diag(n)       # Making a sparse nxn matrix
+diag(K_theta) = n_i     # Insert n_i into diagonal
+
+for(i in 1:n){ 
+  #For each county i, find out which counties are contiguous
+  adjacent_i <- adjacency[i, 3:ncol(adjacency)][adjacency[i,3:ncol(adjacency)]!=0]
+
+  #Insert into structure matrix which areas are contiguous
+  K_theta[i, adjacent_i] = -1
+}
+#----------------------------------------------------
+
+#Sanity check: If K_theta is correct both rows and columns should all sum-to-zero
+print("rows sum-to-zero:")
+print((length(unique(apply(K_theta, 1, sum))) == 1 & apply(K_theta, 1, sum)[1] == 0))
+
+print("columns sum-to-zero:")
+print((length(unique(apply(K_theta, 2, sum))) == 1 & apply(K_theta, 2, sum)[1] == 0))
 ```
 
 ```{r}
