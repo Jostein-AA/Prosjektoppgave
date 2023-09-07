@@ -67,19 +67,58 @@ print("columns sum-to-zero:")
 print((length(unique(apply(K_theta, 2, sum))) == 1 & apply(K_theta, 2, sum)[1] == 0))
 ```
 
-```{r}
+```{r RW_precision_matrices}
+#Precision matrices for random walk 1 and 2
+prec_RW1 <- INLA:::inla.rw(n = T, order = 1, 
+                           scale.model = FALSE, # set scale.model  = F because we'll scale in the formula
+                           sparse = TRUE)
 
-
+prec_RW2 <- INLA:::inla.rw(n = T, order = 2, 
+                           scale.model = FALSE, # set scale.model  = F because we'll scale in the formula
+                           sparse = TRUE)
 ```
 
-```{r}
-
-
+```{r Basic_linear_predictor}
+#Basic linear predictor of, alpha assumed RW1
+basic_linear_predictor <- deaths ~ 1 + f(year, 
+                                         model = "bym2",
+                                         scale.model = T, 
+                                         constr = T, 
+                                         rankdef = 1,
+                                         graph = prec_RW1,
+                                         hyper = list(
+                                              phi = list(
+                                                prior = "pc",
+                                                param = c(0.5, 2/3)), #Magic number
+                                              prec = list(
+                                                prior = "pc.prec",
+                                                param = c(1, 0.01)) #Magic number
+                                              )
+                                         ) + 
+                                        f(county, 
+                                          model = "bym2",
+                                          scale.model = T,
+                                          constr = T,
+                                          rankdef = 1,
+                                          graph = K_theta,
+                                          hyper = list(
+                                            phi = list(
+                                              prior = "pc",
+                                              param = c(0.5, 2/3) #Magic number
+                                            ),
+                                            prec = list(
+                                              prior = "pc.prec",
+                                              param = c(1, 0.01) #Magic number
+                                            )
+                                          ))
 ```
 
-```{r}
-
-
+```{r fit_basic_linear_predictor}
+basic_model <- inla(basic_linear_predictor,
+                 data = ohio_df,
+                 family = "poisson",
+                 E = expected,
+                 control.compute = list(config = TRUE)) # needed if you want to see constraints later
 ```
 
 ```{r}
