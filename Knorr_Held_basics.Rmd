@@ -1,0 +1,69 @@
+---
+title: "Knorr_Held_basic"
+author: "Jostein Aasteboel, Aanes"
+date: "2023-09-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Load libraries
+library(INLA)
+library(tidyverse)
+```
+
+```{r load_data}
+#Areas in Ohio, needed for adjacency matrix
+ohio_graph_path <- "H2023\\Code\\ohioadj.asc"
+
+#
+data.inla <- read.table("http://faculty.washington.edu/jonno/SISMIDmaterial/ohiodata2_spacetime.txt",header=T)
+head(data.inla)
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+
+
+
