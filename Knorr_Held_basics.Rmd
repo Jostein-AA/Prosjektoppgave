@@ -114,11 +114,166 @@ basic_linear_predictor <- deaths ~ 1 + f(year,
 ```
 
 ```{r fit_basic_linear_predictor}
-basic_model <- inla(basic_linear_predictor,
+basic_model_fit <- inla(basic_linear_predictor,
                  data = ohio_df,
                  family = "poisson",
                  E = expected,
                  control.compute = list(config = TRUE)) # needed if you want to see constraints later
+```
+
+```{r summary_basic}
+summary_basic_fit <- summary(basic_model_fit)
+
+
+print("---")
+print(summary_basic_fit$hyperpar)
+print("---")
+print(summary_basic_fit$linear.predictor)
+print("---")
+print(summary_basic_fit$fixed)
+print("---")
+print(summary_basic_fit$mlik)
+```
+```{r type_I_interaction}
+# a unique number for each time.space combination (88*21 = 1848)
+ohio_df$spacetime.unstructured <- 1:(n * T)
+
+# Add Type I Interaction term to basic linear predictor
+lin_pred_w_type_I <- update(basic_linear_predictor, ~. + 
+                              f(spacetime.unstructured, model="iid", 
+                                hyper = list(
+                                  prec = list(
+                                    param = c(1, 0.01))
+                                  )
+                                ))
+
+#Assuming fully connected adjacency structure (e.g no islands) 
+#when defining rank-deficiency
+type_I_fit <- inla(lin_pred_w_type_I,
+                 data = ohio_df,
+                 family = "poisson",
+                 E = expected,
+                 control.compute = list(config = TRUE))
+
+
+```
+
+```{r type_II_fit}
+
+# creating constraint matrix needed for Type II Interaction
+A <- matrix(0, nrow = n, ncol = n * T)
+for (i in 1:n) { 
+  A[i, which((1:(n * T))%%n == i - 1)] <- 1
+}
+
+# specify constraints in INLA-ready format
+constr.st <- list(A = A, e = rep(0, dim(A)[1]))
+
+### defining Kronecker product for the Type II Interaction
+
+# Kronecker product between RW1 and IID space term
+# order matters here! In our data set, the time ordering take precedent over the space ordering
+# so we must have the RW on the left and space on the right
+# Optionally, we scale the matrix beforehand as well
+scaled_RW_prec <- inla.scale.model(prec_RW1, list(A = matrix(1, 1, dim(prec_RW1)[1]), e = 0))
+R <- scaled_RW_prec %x% diag(n)
+
+
+# Add Type I Interaction term to basic linear predictor
+#Assuming fully connected adjacency structure (e.g no islands) 
+#when defining rank-deficiency
+lin_pred_w_type_II <- update(basic_linear_predictor, ~. + 
+                              f(spacetime.unstructured,
+                                model = "generic0", 
+                                Cmatrix = R,
+                                extraconstr = constr.st, 
+                                rankdef = n, 
+                                param = c(1, 0.01)))
+
+
+type_II_fit <- inla(lin_pred_w_type_II,
+                 data = ohio_df,
+                 family = "poisson",
+                 E = expected,
+                 control.compute = list(config = TRUE))
+
+
+```
+
+```{r type_III}
+A <- matrix(0, nrow = T, ncol = n * T)
+for (i in 1:T) {
+  # The ICAR at each time point needs to sum to 1
+  A[i, ((i - 1) * n + 1):(i * n)] <- 1
+}
+
+scaled_ICAR_prec <- INLA::inla.scale.model(K_theta, 
+                                           constr = list(A = matrix(1, 1, dim(K_theta)[1]), e = 0))
+
+R <- diag(T) %x% K_theta 
+
+# specify constraints in INLA-ready format
+constr.st <- list(A = A, e = rep(0, dim(A)[1]))
+
+lin_pred_w_type_III <- update(basic_linear_predictor, ~. + f(spacetime.unstructured, 
+                                          model = "generic0",
+                                          Cmatrix = R,
+                                          extraconstr = constr.st, 
+                                          rankdef = T, 
+                                          param = c(1, 0.01)))
+
+
+type_III_fit <- inla(lin_pred_w_type_III,
+                 data = ohio_df,
+                 family = "poisson",
+                 E = expected,
+                 control.compute = list(config = TRUE))
+
+```
+
+```{r Type_IV}
+# Specifying constraints needed for Type IV Interaction
+time_constr <- matrix(0, n, n * T)
+for (i in 1:n) {
+  time_constr[i, which((1:(n * T))%%n == i - 1)] <- 1
+}
+space_constr <- matrix(0, T-1, n * T)
+# theoretically it's enough to only go through N-1 here
+# note that we could have instead done 1:(S-1) in the first loop and 1:N in the second
+for (i in 1:(T-1)) { 
+  space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
+}
+
+# N * S - (N - 1) * (S - 1) = N + S - 1
+
+tmp <- rbind(time_constr, space_constr) 
+constr.st <- list(A = tmp, e = rep(0, dim(tmp)[1]))
+
+# Kronecker product between ICAR x RW1
+R <- scaled_RW_prec %x% scaled_ICAR_prec
+
+type_IV_fit <- update(basic_linear_predictor, ~. + f(spacetime.unstructured, 
+                                         model = "generic0",
+                                         Cmatrix = R,
+                                         extraconstr = constr.st,
+                                         rankdef = n + T - 1, 
+                                         param = c(1, 0.01)))
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+```{r}
+
+
 ```
 
 ```{r}
