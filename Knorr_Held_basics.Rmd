@@ -252,17 +252,23 @@ constr.st <- list(A = tmp, e = rep(0, dim(tmp)[1]))
 # Kronecker product between ICAR x RW1
 R <- scaled_RW_prec %x% scaled_ICAR_prec
 
-type_IV_fit <- update(basic_linear_predictor, ~. + f(spacetime.unstructured, 
+lin_pred_w_type_IV <- update(basic_linear_predictor, ~. + f(spacetime.unstructured, 
                                          model = "generic0",
                                          Cmatrix = R,
                                          extraconstr = constr.st,
                                          rankdef = n + T - 1, 
                                          param = c(1, 0.01)))
 
+type_IV_fit <- inla(lin_pred_w_type_IV,
+                 data = ohio_df,
+                 family = "poisson",
+                 E = expected,
+                 control.compute = list(config = TRUE))
+
 ```
 
 ```{r}
-
+summary(type_IV_fit)
 
 ```
 
