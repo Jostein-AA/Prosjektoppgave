@@ -18,6 +18,7 @@ library(spdep)
 library(ggplot2)
 require(mgcv)
 library(MASS)
+library(fastmatrix)
 ```
 
 ```{r load_map}
@@ -88,8 +89,44 @@ theta = mvrnorm(n = 1, zero_vector_n, adjacency_matrix)
 ```
 
 ```{r define_interactions}
+#Define the zero matrix for the interaction-space
+zero_matrix_interaction = rep(0, n * T)
 
+#Type I interaction
+delta.prec.I <- kronecker.prod(I_T, y = I_n)
 
+#Sample type I interaction
+set.seed(507741)
+delta.I <- mvrnorm(n = 1, 
+                   zero_matrix_interaction,
+                   delta.prec.I)
+
+#Type II interaction
+delta.prec.II <- kronecker.prod(K_alpha, y = I_n)
+
+#Sample type II interaction
+set.seed(507742)
+delta.II <- mvrnorm(n = 1, 
+                   zero_matrix_interaction,
+                   delta.prec.II)
+
+#Type III interaction
+delta.prec.III <- kronecker.prod(I_T, y = adjacency_matrix)
+
+#Sample type III interaction
+set.seed(507743)
+delta.III <- mvrnorm(n = 1, 
+                   zero_matrix_interaction,
+                   delta.prec.III)
+
+#Type IV interaction
+delta.prec.IV <- kronecker.prod(K_alpha, y = adjacency_matrix)
+
+#Sample type IV interaction
+set.seed(507744)
+delta.IV <- mvrnorm(n = 1, 
+                   zero_matrix_interaction,
+                   delta.prec.IV)
 ```
 
 
