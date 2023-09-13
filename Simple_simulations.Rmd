@@ -131,17 +131,54 @@ delta.IV <- mvrnorm(n = 1,
 
 
 ```{r define_linear_predictor}
-
+#Initiate memory for linear predictor eta.I using type I interaction
+eta.I = matrix(0, T, n)
+ 
+for(t in 1:T){
+  for(i in 1:n){
+    eta.I[t, i] = mu + alpha[t] + gamma[t] + theta[i] + phi[i] + delta.I[t * i]
+  }
+}
 ```
 
+```{r sample_response}
+#Binomial or Poisson???
+
+#Binomial logit link
+p = exp(eta.I)/(1 + exp(eta.I))
+
+#Poisson link
+lambda = exp(eta.I)
+
+#Sample response from Binomial
+y_binom = matrix(0, T, n)
+set.seed(507745)
+for(t in 1:T){
+  for(i in 1:n){
+    y_binom[t, i] = rbinom(n = 1, 10000, p[t, i])
+  }
+}
 
 
-```{r}
-
+#Sample response from Poisson
+y_poisson = matrix(0, T, n)
+set.seed(507746)
+for (t in 1:T) {
+  for (i in 1:n) {
+    y_poisson[t, i] = rpois(n = 1, lambda[t, i])
+  }
+}
 ```
 
-```{r}
+```{r heat_map}
+map$disease <- y_binom[1,]
 
+plot(st_geometry(map), 
+     col = sf.colors(12, categorical = TRUE),
+     border = 'grey', 
+     axes = TRUE)
+
+plot(map['disease'])
 ```
 
 ```{r}
