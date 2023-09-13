@@ -12,23 +12,92 @@ knitr::opts_chunk$set(echo = TRUE)
 #Load libraries
 library(INLA)
 library(tidyverse)
+library(spData)
+library(sf)
+library(spdep)
+library(ggplot2)
+require(mgcv)
+library(MASS)
 ```
 
-```{r}
+```{r load_map}
+# read a shapefile, defining the country and subregional borders
+map <- st_read(system.file("shapes/columbus.shp",
+                           package = "spData"), quiet = TRUE)
+
+# extract the adjacency structure from the graph: map.
+# queen = FALSE, since it is closer to being rook adjacency.
+nb <- spdep::poly2nb(map, queen = FALSE)
+
+# needed for inla
+adjacency_matrix <- nb2mat(nb, style="B")
+mydiag = rowSums(adjacency_matrix)
+adjacency_matrix <- -adjacency_matrix
+diag(adjacency_matrix) <- mydiag
+```
+
+```{r preliminaries}
+# Define over how many time points to simulate data from 
+T = 15
+time <- 1:T
+
+# Extract number of regions
+n = length(nb)
+```
+
+
+```{r define_effects}
+set.seed(507740)
+
+#Define the effects present in the linear predictor
+#---
+#The overall risk, should be the same at all times for all areas
+mu = rnorm(1, mean = 0, sd = 1)
+
+#Define the zero mean vector for the temporal dimension
+zero_vector_T = rep(0, T)
+
+#Define the identity matrix for Temporal dimension: TxT
+I_T = diag(1, T, T)
+
+#Sample Gamma
+gamma = mvrnorm(n = 1, zero_vector_T, I_T)
+
+#Define structure matrix for alpha, structure as RW1
+K_alpha = 2 * I_T                   # Get 2 along diag
+sdiag(K_alpha, 1) = -1              # -1 along super diag
+sdiag(K_alpha, -1) = -1             # -1 along sub diag
+K_alpha[1,1] = 1; K_alpha[T,T] = 1  # 1 in upper left and lower right.
+
+#Sample alpha
+alpha = mvrnorm(n = 1, zero_vector_T, K_alpha)
+
+#Define the zero mean vector for the spatial dimension
+zero_vector_n= rep(0, n)
+
+
+#Define identity matrix I_n nxn
+I_n = diag(1, nrow = n, ncol = n)
+
+#Sample phi
+phi = mvrnorm(n = 1, zero_vector_n, I_n)
+
+#The structure matrix for theta (ICAR) is adjacency_matrix
+#Sample theta
+theta = mvrnorm(n = 1, zero_vector_n, adjacency_matrix)
+```
+
+```{r define_interactions}
+
 
 ```
 
-```{r}
+
+```{r define_linear_predictor}
 
 ```
 
-```{r}
 
-```
-
-```{r}
-
-```
 
 ```{r}
 
