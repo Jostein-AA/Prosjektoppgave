@@ -59,6 +59,9 @@ zero_vector_T = rep(0, T)
 #Define the zero mean vector for the spatial dimension
 zero_vector_n= rep(0, n)
 
+#Define the zero vector for the interaction-space
+zero_vector_interaction = rep(0, n * T)
+
 #Define the identity matrix for Temporal dimension: TxT
 I_T = diag(1, T, T)
 
@@ -119,16 +122,16 @@ theta = rnorm.Q(Q_theta,                  # Precision matrix theta
                 )
 ```
 
-```{r define_and_sample_interactions}
-#Define the zero vector for the interaction-space
-zero_vector_interaction = rep(0, n * T)
+```{r precision_matr_interactions}
 
 # structure/precision matrices
 delta.prec.I <-   kronecker.prod(I_T, y = I_n)                     #Structure matrix, here used as precision
 delta.prec.II <-  kronecker.prod(K_alpha, y = I_n)                 # --||--
 delta.prec.III <- kronecker.prod(I_T, y = adjacency_matrix)        # --||--
 delta.prec.IV <-  kronecker.prod(K_alpha, y = adjacency_matrix)    # --||--
+```
 
+```{r constraints_interactions}
 # Define constraint matrices for type II-IV interactions for sampling
 
 # Constraint-matrix for type-II interaction
@@ -160,9 +163,10 @@ for (i in 1:(T-1)) {
 # N * S - (N - 1) * (S - 1) = N + S - 1
 
 tmp <- cbind(time_constr, space_constr) 
+```
 
 
-
+```{r sample_interactions}
 #Sample interactions of type I - IV:
 set.seed(507741)
 delta.I = rnorm.Q(delta.prec.I,                  # Precision matrix delta.I
@@ -225,16 +229,16 @@ for(t in 1:T){
   for(i in 1:n){
     y_binom[t, i]     = rbinom(n = 1, 10000, p[t, i])
     y_binom.I[t, i]   = rbinom(n = 1, 10000, p.I[t, i])
-    #y_binom.II[t, i]  = rbinom(n = 1, 10000, p.II[t, i])
-    #y_binom.III[t, i] = rbinom(n = 1, 10000, p.III[t, i])
-    #y_binom.IV[t, i]  = rbinom(n = 1, 10000, p.IV[t, i])
+    y_binom.II[t, i]  = rbinom(n = 1, 10000, p.II[t, i])
+    y_binom.III[t, i] = rbinom(n = 1, 10000, p.III[t, i])
+    y_binom.IV[t, i]  = rbinom(n = 1, 10000, p.IV[t, i])
   }
 }
 
 ```
 
 ```{r heat_map}
-map$disease <- y_binom[13,]
+map$disease <- y_binom.IV[5,]
 
 plot(map['disease'])
 ```
