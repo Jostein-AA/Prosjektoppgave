@@ -134,8 +134,32 @@ delta.prec.IV <-  kronecker.prod(K_alpha, y = adjacency_matrix)    # --||--
 # Constraint-matrix for type-II interaction
 constraint.II <- matrix(0, nrow = nrow(delta.prec.II), ncol = n)
 for (i in 1:n) { 
+  #???
   constraint.II[which((1:(n * T))%%n == i - 1), i] <- 1
 }
+
+constraint.III <- matrix(0, nrow = nrow(delta.prec.III), ncol = T)
+for (i in 1:T) {
+  # The ICAR at each time point needs to sum to ?1?
+  constraint.III[((i - 1) * n + 1):(i * n), i] <- 1
+}
+
+
+# Specifying constraints needed for Type IV Interaction
+time_constr <- matrix(0, n * T, n)
+for (i in 1:n) {
+  time_constr[which((1:(n * T))%%n == i - 1), i] <- 1
+}
+space_constr <- matrix(0, n * T, T-1)
+# theoretically it's enough to only go through N-1 here
+# note that we could have instead done 1:(S-1) in the first loop and 1:N in the second
+for (i in 1:(T-1)) { 
+  space_constr[((i - 1) * n + 1):(i * n), i] <- 1
+}
+
+# N * S - (N - 1) * (S - 1) = N + S - 1
+
+tmp <- cbind(time_constr, space_constr) 
 
 
 
@@ -153,17 +177,13 @@ delta.II = rnorm.Q(delta.prec.II,                  # Precision matrix delta.II
 
 delta.III = rnorm.Q(delta.prec.III,                  # Precision matrix delta.III
                 mu = zero_vector_interaction,       # Prior mean delta.III (0,..,0)
-                X = Matrix(1,                       #Defines a vector which samples are orthogonal too
-                           nrow = nrow(delta.prec.III),
-                           ncol = 1), 
-                zero.constraint = F            # Make it so samples are orthogonal to (1,...,1)
+                X = constraint.III, 
+                zero.constraint = T            # Make it so samples are orthogonal to (1,...,1)
                 )
 
 delta.IV = rnorm.Q(delta.prec.IV,                  # Precision matrix delta.IV
                 mu = zero_vector_interaction,       # Prior mean delta.IV (0,..,0)
-                X = Matrix(1,                       #Defines a vector which samples are orthogonal too
-                           nrow = nrow(delta.prec.IV),
-                           ncol = 1), 
+                X = tmp, 
                 zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
                 )
 ```
