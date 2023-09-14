@@ -19,6 +19,7 @@ library(ggplot2)
 require(mgcv)
 library(MASS)
 library(fastmatrix)
+library(rwc)
 ```
 
 ```{r load_map}
@@ -44,25 +45,23 @@ time <- 1:T
 
 # Extract number of regions
 n = length(nb)
-```
-
-
-```{r define_effects}
-set.seed(507740)
-
-#Define the effects present in the linear predictor
-#---
-#The overall risk, should be the same at all times for all areas
-mu = rnorm(1, mean = 0, sd = 1)
 
 #Define the zero mean vector for the temporal dimension
 zero_vector_T = rep(0, T)
 
+#Define the zero mean vector for the spatial dimension
+zero_vector_n= rep(0, n)
+
 #Define the identity matrix for Temporal dimension: TxT
 I_T = diag(1, T, T)
 
-#Sample Gamma
-gamma = mvrnorm(n = 1, zero_vector_T, I_T)
+#Define identity matrix I_n, dimension nxn
+I_n = diag(1, nrow = n, ncol = n)
+```
+
+```{r define_precision_matrices_of_effects}
+# precision matrix of gamma
+Q_gamma = 0.5 * I_T
 
 #Define structure matrix for alpha, structure as RW1
 K_alpha = 2 * I_T                   # Get 2 along diag
@@ -70,30 +69,64 @@ sdiag(K_alpha, 1) = -1              # -1 along super diag
 sdiag(K_alpha, -1) = -1             # -1 along sub diag
 K_alpha[1,1] = 1; K_alpha[T,T] = 1  # 1 in upper left and lower right.
 
-#Sample alpha
-alpha = mvrnorm(n = 1, zero_vector_T, K_alpha)
+# Precision matrix of alpha
+Q_alpha = K_alpha
 
-#Define the zero mean vector for the spatial dimension
-zero_vector_n= rep(0, n)
+# Precison matrix phi
+Q_phi = 0.5 * I_n
 
+# Precision matrix theta
+Q_theta = adjacency_matrix
 
-#Define identity matrix I_n nxn
-I_n = diag(1, nrow = n, ncol = n)
-
-#Sample phi
-phi = mvrnorm(n = 1, zero_vector_n, I_n)
-
-#The structure matrix for theta (ICAR) is adjacency_matrix
-#Sample theta
-theta = mvrnorm(n = 1, zero_vector_n, adjacency_matrix)
 ```
 
-```{r define_interactions}
+
+```{r sample_fixed_effects}
+#Sample the effects present in the linear predictor
+set.seed(507740)
+mu = rnorm(1, mean = 0, sd = 1/(0.01))    # mu: Somewhat high variance (low precision)
+
+gamma = rnorm.Q(Q_gamma,                  # Precision matrix gamma
+                mu = zero_vector_T,       # Prior mean gamma (0,..,0)
+                X = Matrix(1, nrow = nrow(Q_gamma), ncol = 1), #Defines a vector which samples are orthogonal too
+                zero.constraint = TRUE                         # Make it so samples are orthogonal to (1,...,1)
+                ) 
+
+alpha = rnorm.Q(Q_alpha,                  # Precision matrix alpha
+                mu = zero_vector_T,       # Prior mean alpha (0,..,0)
+                X = Matrix(1, nrow = nrow(Q_alpha), ncol = 1), #Defines a vector which samples are orthogonal too
+                zero.constraint = TRUE                         # Make it so samples are orthogonal to (1,...,1)
+                ) 
+
+phi = rnorm.Q(Q_phi,                  # Precision matrix phi
+                mu = zero_vector_n,       # Prior mean phi (0,..,0)
+                X = Matrix(1, nrow = nrow(Q_phi), ncol = 1), #Defines a vector which samples are orthogonal too
+                zero.constraint = TRUE                         # Make it so samples are orthogonal to (1,...,1)
+                ) 
+
+
+theta = rnorm.Q(Q_theta,                  # Precision matrix theta
+                mu = zero_vector_n,       # Prior mean theta (0,..,0)
+                X = Matrix(1, nrow = nrow(Q_theta), ncol = 1), #Defines a vector which samples are orthogonal too
+                zero.constraint = TRUE                         # Make it so samples are orthogonal to (1,...,1)
+                )
+```
+
+```{r define_and_sample_interactions}
 #Define the zero matrix for the interaction-space
 zero_matrix_interaction = rep(0, n * T)
 
-#Type I interaction
-delta.prec.I <- kronecker.prod(I_T, y = I_n)
+# structure/precision matrices
+delta.prec.I <- kronecker.prod(I_T, y = I_n)                     #Structure matrix, here used as precision
+delta.prec.II <- kronecker.prod(K_alpha, y = I_n)                # --||--
+delta.prec.III <- kronecker.prod(I_T, y = adjacency_matrix)      # --||--
+delta.prec.IV <- kronecker.prod(K_alpha, y = adjacency_matrix)   # --||--
+
+
+
+
+
+
 
 #Sample type I interaction
 set.seed(507741)
@@ -102,7 +135,7 @@ delta.I <- mvrnorm(n = 1,
                    delta.prec.I)
 
 #Type II interaction
-delta.prec.II <- kronecker.prod(K_alpha, y = I_n)
+
 
 #Sample type II interaction
 set.seed(507742)
@@ -111,7 +144,7 @@ delta.II <- mvrnorm(n = 1,
                    delta.prec.II)
 
 #Type III interaction
-delta.prec.III <- kronecker.prod(I_T, y = adjacency_matrix)
+
 
 #Sample type III interaction
 set.seed(507743)
@@ -120,7 +153,7 @@ delta.III <- mvrnorm(n = 1,
                    delta.prec.III)
 
 #Type IV interaction
-delta.prec.IV <- kronecker.prod(K_alpha, y = adjacency_matrix)
+
 
 #Sample type IV interaction
 set.seed(507744)
