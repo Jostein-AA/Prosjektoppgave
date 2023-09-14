@@ -72,7 +72,7 @@ K_alpha[1,1] = 1; K_alpha[T,T] = 1  # 1 in upper left and lower right.
 # Precision matrix of alpha
 Q_alpha = K_alpha
 
-# Precison matrix phi
+# Precision matrix phi
 Q_phi = 0.5 * I_n
 
 # Precision matrix theta
@@ -81,10 +81,11 @@ Q_theta = adjacency_matrix
 ```
 
 
-```{r sample_fixed_effects}
+```{r sample_effects}
 #Sample the effects present in the linear predictor
+
 set.seed(507740)
-mu = rnorm(1, mean = 0, sd = 1/(0.01))    # mu: Somewhat high variance (low precision)
+mu = rnorm(1, mean = 0, sd = 1)    # mu: Somewhat high variance (low precision)
 
 gamma = rnorm.Q(Q_gamma,                  # Precision matrix gamma
                 mu = zero_vector_T,       # Prior mean gamma (0,..,0)
@@ -117,56 +118,53 @@ theta = rnorm.Q(Q_theta,                  # Precision matrix theta
 zero_matrix_interaction = rep(0, n * T)
 
 # structure/precision matrices
-delta.prec.I <- kronecker.prod(I_T, y = I_n)                     #Structure matrix, here used as precision
-delta.prec.II <- kronecker.prod(K_alpha, y = I_n)                # --||--
-delta.prec.III <- kronecker.prod(I_T, y = adjacency_matrix)      # --||--
-delta.prec.IV <- kronecker.prod(K_alpha, y = adjacency_matrix)   # --||--
+delta.prec.I <-   kronecker.prod(I_T, y = I_n)                     #Structure matrix, here used as precision
+delta.prec.II <-  kronecker.prod(K_alpha, y = I_n)                 # --||--
+delta.prec.III <- kronecker.prod(I_T, y = adjacency_matrix)        # --||--
+delta.prec.IV <-  kronecker.prod(K_alpha, y = adjacency_matrix)    # --||--
 
 
-
-
-
-
-
-#Sample type I interaction
+#Sample interactions of type I - IV:
 set.seed(507741)
-delta.I <- mvrnorm(n = 1, 
-                   zero_matrix_interaction,
-                   delta.prec.I)
+delta.I = rnorm.Q(delta.prec.I,                  # Precision matrix delta.I
+                mu = zero_matrix_interaction,       # Prior mean delta.I (0,..,0)
+                X = Matrix(1,                       #Defines a vector which samples are orthogonal too
+                           nrow = nrow(delta.prec.I),
+                           ncol = 1), 
+                zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
+                )
 
-#Type II interaction
+delta.II = rnorm.Q(delta.prec.II,                  # Precision matrix delta.II
+                mu = zero_matrix_interaction,       # Prior mean delta.II (0,..,0)
+                X = Matrix(1,                       #Defines a vector which samples are orthogonal too
+                           nrow = nrow(delta.prec.II),
+                           ncol = 1), 
+                zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
+                )
 
+delta.III = rnorm.Q(delta.prec.III,                  # Precision matrix delta.III
+                mu = zero_matrix_interaction,       # Prior mean delta.III (0,..,0)
+                X = Matrix(1,                       #Defines a vector which samples are orthogonal too
+                           nrow = nrow(delta.prec.III),
+                           ncol = 1), 
+                zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
+                )
 
-#Sample type II interaction
-set.seed(507742)
-delta.II <- mvrnorm(n = 1, 
-                   zero_matrix_interaction,
-                   delta.prec.II)
-
-#Type III interaction
-
-
-#Sample type III interaction
-set.seed(507743)
-delta.III <- mvrnorm(n = 1, 
-                   zero_matrix_interaction,
-                   delta.prec.III)
-
-#Type IV interaction
-
-
-#Sample type IV interaction
-set.seed(507744)
-delta.IV <- mvrnorm(n = 1, 
-                   zero_matrix_interaction,
-                   delta.prec.IV)
+delta.IV = rnorm.Q(delta.prec.IV,                  # Precision matrix delta.IV
+                mu = zero_matrix_interaction,       # Prior mean delta.IV (0,..,0)
+                X = Matrix(1,                       #Defines a vector which samples are orthogonal too
+                           nrow = nrow(delta.prec.IV),
+                           ncol = 1), 
+                zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
+                )
 ```
 
 
 ```{r define_linear_predictor}
 #Initiate memory for linear predictor eta.I using type I interaction
 eta.I = matrix(0, T, n)
- 
+
+# Get the values for the linear predictor at every time point at every area 
 for(t in 1:T){
   for(i in 1:n){
     eta.I[t, i] = mu + alpha[t] + gamma[t] + theta[i] + phi[i] + delta.I[t * i]
@@ -205,11 +203,6 @@ for (t in 1:T) {
 
 ```{r heat_map}
 map$disease <- y_binom[1,]
-
-plot(st_geometry(map), 
-     col = sf.colors(12, categorical = TRUE),
-     border = 'grey', 
-     axes = TRUE)
 
 plot(map['disease'])
 ```
