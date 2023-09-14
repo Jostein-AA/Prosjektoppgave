@@ -36,6 +36,13 @@ adjacency_matrix <- nb2mat(nb, style="B")
 mydiag = rowSums(adjacency_matrix)
 adjacency_matrix <- -adjacency_matrix
 diag(adjacency_matrix) <- mydiag
+
+#Sanity check: If adjacency_matrix is correct both rows and columns should all sum-to-zero
+print("rows sum-to-zero:")
+print((length(unique(apply(adjacency_matrix, 1, sum))) == 1 & apply(adjacency_matrix, 1, sum)[1] == 0))
+
+print("columns sum-to-zero:")
+print((length(unique(apply(adjacency_matrix, 2, sum))) == 1 & apply(adjacency_matrix, 2, sum)[1] == 0))
 ```
 
 ```{r preliminaries}
@@ -64,10 +71,9 @@ I_n = diag(1, nrow = n, ncol = n)
 Q_gamma = 0.5 * I_T
 
 #Define structure matrix for alpha, structure as RW1
-K_alpha = 2 * I_T                   # Get 2 along diag
-sdiag(K_alpha, 1) = -1              # -1 along super diag
-sdiag(K_alpha, -1) = -1             # -1 along sub diag
-K_alpha[1,1] = 1; K_alpha[T,T] = 1  # 1 in upper left and lower right.
+K_alpha <- INLA:::inla.rw(n = T, order = 1, 
+                           scale.model = F, # set scale.model = F
+                           sparse = F)
 
 # Precision matrix of alpha
 Q_alpha = K_alpha
@@ -85,7 +91,7 @@ Q_theta = adjacency_matrix
 #Sample the effects present in the linear predictor
 
 set.seed(507740)
-mu = rnorm(1, mean = 0, sd = 1)    # mu: Somewhat high variance (low precision)
+mu = rnorm(1, mean = 0, sd = 1)    # mu
 
 gamma = rnorm.Q(Q_gamma,                  # Precision matrix gamma
                 mu = zero_vector_T,       # Prior mean gamma (0,..,0)
@@ -114,8 +120,8 @@ theta = rnorm.Q(Q_theta,                  # Precision matrix theta
 ```
 
 ```{r define_and_sample_interactions}
-#Define the zero matrix for the interaction-space
-zero_matrix_interaction = rep(0, n * T)
+#Define the zero vector for the interaction-space
+zero_vector_interaction = rep(0, n * T)
 
 # structure/precision matrices
 delta.prec.I <-   kronecker.prod(I_T, y = I_n)                     #Structure matrix, here used as precision
@@ -123,35 +129,38 @@ delta.prec.II <-  kronecker.prod(K_alpha, y = I_n)                 # --||--
 delta.prec.III <- kronecker.prod(I_T, y = adjacency_matrix)        # --||--
 delta.prec.IV <-  kronecker.prod(K_alpha, y = adjacency_matrix)    # --||--
 
+# Define constraint matrices for type II-IV interactions for sampling
+
+# Constraint-matrix for type-II interaction
+constraint.II <- matrix(0, nrow = nrow(delta.prec.II), ncol = n)
+for (i in 1:n) { 
+  constraint.II[which((1:(n * T))%%n == i - 1), i] <- 1
+}
+
+
 
 #Sample interactions of type I - IV:
 set.seed(507741)
 delta.I = rnorm.Q(delta.prec.I,                  # Precision matrix delta.I
-                mu = zero_matrix_interaction,       # Prior mean delta.I (0,..,0)
-                X = Matrix(1,                       #Defines a vector which samples are orthogonal too
-                           nrow = nrow(delta.prec.I),
-                           ncol = 1), 
-                zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
-                )
+                mu = zero_vector_interaction       # Prior mean delta.I (0,..,0)
+                )                                  
 
 delta.II = rnorm.Q(delta.prec.II,                  # Precision matrix delta.II
-                mu = zero_matrix_interaction,       # Prior mean delta.II (0,..,0)
-                X = Matrix(1,                       #Defines a vector which samples are orthogonal too
-                           nrow = nrow(delta.prec.II),
-                           ncol = 1), 
-                zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
+                mu = zero_vector_interaction,      # Prior mean delta.II (0,..,0)
+                X = constraint.II,                 # Constraint matrix samples are orthogonal to
+                zero.constraint = T                # Make it so samples are orthogonal to constraint.II
                 )
 
 delta.III = rnorm.Q(delta.prec.III,                  # Precision matrix delta.III
-                mu = zero_matrix_interaction,       # Prior mean delta.III (0,..,0)
+                mu = zero_vector_interaction,       # Prior mean delta.III (0,..,0)
                 X = Matrix(1,                       #Defines a vector which samples are orthogonal too
                            nrow = nrow(delta.prec.III),
                            ncol = 1), 
-                zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
+                zero.constraint = F            # Make it so samples are orthogonal to (1,...,1)
                 )
 
 delta.IV = rnorm.Q(delta.prec.IV,                  # Precision matrix delta.IV
-                mu = zero_matrix_interaction,       # Prior mean delta.IV (0,..,0)
+                mu = zero_vector_interaction,       # Prior mean delta.IV (0,..,0)
                 X = Matrix(1,                       #Defines a vector which samples are orthogonal too
                            nrow = nrow(delta.prec.IV),
                            ncol = 1), 
@@ -161,58 +170,71 @@ delta.IV = rnorm.Q(delta.prec.IV,                  # Precision matrix delta.IV
 
 
 ```{r define_linear_predictor}
-#Initiate memory for linear predictor eta.I using type I interaction
-eta.I = matrix(0, T, n)
+#Initiate memory for linear predictors
+eta    = matrix(0, T, n); eta.I = matrix(0, T, n)
+eta.II = matrix(0, T, n); eta.III = matrix(0, T, n)
+eta.IV = matrix(0, T, n)
 
 # Get the values for the linear predictor at every time point at every area 
 for(t in 1:T){
   for(i in 1:n){
+    eta[t, i] = mu + alpha[t] + gamma[t] + theta[i] + phi[i]
     eta.I[t, i] = mu + alpha[t] + gamma[t] + theta[i] + phi[i] + delta.I[t * i]
+    eta.II[t, i] = mu + alpha[t] + gamma[t] + theta[i] + phi[i] + delta.II[t * i]
+    eta.III[t, i] = mu + alpha[t] + gamma[t] + theta[i] + phi[i] + delta.III[t * i]
+    eta.IV[t, i] = mu + alpha[t] + gamma[t] + theta[i] + phi[i] + delta.IV[t * i]
   }
 }
 ```
 
-```{r sample_response}
-#Binomial or Poisson???
+```{r sample_Binomial_response}
+#Binomial logit link p = exp(eta)/(1+exp(eta))
+p = exp(eta)/(1 + exp(eta)); p.I = exp(eta.I)/(1 + exp(eta.I))
+p.II = exp(eta.II)/(1 + exp(eta.II)); p.III = exp(eta.III)/(1 + exp(eta.III))
+p.IV = exp(eta.IV)/(1 + exp(eta.IV))
 
-#Binomial logit link
-p = exp(eta.I)/(1 + exp(eta.I))
+#Initiate memory for responses
+y_binom = matrix(0, T, n); y_binom.I = matrix(0, T, n)
+y_binom.II = matrix(0, T, n); y_binom.III = matrix(0, T, n)
+y_binom.IV = matrix(0, T, n)
 
-#Poisson link
-lambda = exp(eta.I)
 
-#Sample response from Binomial
-y_binom = matrix(0, T, n)
-set.seed(507745)
+#Sample responses from Binomial
+set.seed(507742)
 for(t in 1:T){
   for(i in 1:n){
-    y_binom[t, i] = rbinom(n = 1, 10000, p[t, i])
+    y_binom[t, i]     = rbinom(n = 1, 10000, p[t, i])
+    y_binom.I[t, i]   = rbinom(n = 1, 10000, p.I[t, i])
+    #y_binom.II[t, i]  = rbinom(n = 1, 10000, p.II[t, i])
+    #y_binom.III[t, i] = rbinom(n = 1, 10000, p.III[t, i])
+    #y_binom.IV[t, i]  = rbinom(n = 1, 10000, p.IV[t, i])
   }
 }
 
-
-#Sample response from Poisson
-y_poisson = matrix(0, T, n)
-set.seed(507746)
-for (t in 1:T) {
-  for (i in 1:n) {
-    y_poisson[t, i] = rpois(n = 1, lambda[t, i])
-  }
-}
 ```
 
 ```{r heat_map}
-map$disease <- y_binom[1,]
+map$disease <- y_binom[13,]
 
 plot(map['disease'])
 ```
 
 ```{r}
-
+print("done diddyli doo")
 ```
 
 ```{r}
+#Poisson link
+lambda = exp(eta)
 
+#Sample responses from Poisson
+y_poisson = matrix(0, T, n)
+set.seed(507743)
+for (t in 1:T) {
+  for (i in 1:n) {
+    y_poisson[t, i] = rpois(n = 1, lambda[t, i])
+  }
+}
 ```
 
 ```{r}
