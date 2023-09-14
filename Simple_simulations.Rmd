@@ -245,10 +245,42 @@ for(t in 1:T){
 
 ```{r heat_map}
 
-map$disease <- y_binom.III[1,]
+map$disease <- y_binom.IV[4,]
 
 plot(map['disease'])
 ```
+
+```{r basic_lin_predictor}
+#Basic linear predictor, alpha assumed RW1
+basic_lin_pred <- deaths ~ 1 + f(year, model = "bym2", scale.model = T, 
+                                 constr = T, rankdef = 1, graph = K_alpha,
+                                 hyper = list(
+                                      phi = list(
+                                        prior = "pc",
+                                        param = c(0.5, 2/3)), #Magic number
+                                      prec = list(
+                                        prior = "pc.prec",
+                                        param = c(1, 0.01)) #Magic number
+                                      )
+                                 ) + 
+                                f(county, model = "bym2", scale.model = T,
+                                  constr = T, rankdef = 1, graph = adjacency_matrix,
+                                  hyper = list(
+                                    phi = list(
+                                      prior = "pc",
+                                      param = c(0.5, 2/3) #Magic number
+                                    ),
+                                    prec = list(
+                                      prior = "pc.prec",
+                                      param = c(1, 0.01) #Magic number
+                                    )
+                                  ))
+
+
+
+
+```
+
 
 ```{r}
 print("done diddyli doo")
