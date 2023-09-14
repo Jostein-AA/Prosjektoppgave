@@ -23,15 +23,23 @@ library(rwc)
 ```
 
 ```{r load_map}
+#Define columns to keep
+columns_to_keep <- c("AREA", "PERIMETER", "POLYID", "NEIG", "DISCBD",
+                     "X", "Y", "NEIGNO", "geometry")
+
 # read a shapefile, defining the country and subregional borders
 map <- st_read(system.file("shapes/columbus.shp",
                            package = "spData"), quiet = TRUE)
+
+
+#Only keep columns as written
+map <- map[, columns_to_keep]
 
 # extract the adjacency structure from the graph: map.
 # queen = FALSE, since it is closer to being rook adjacency.
 nb <- spdep::poly2nb(map, queen = FALSE)
 
-# needed for inla
+# Create adjacency matrix, needed as structure matrix for ICAR
 adjacency_matrix <- nb2mat(nb, style="B")
 mydiag = rowSums(adjacency_matrix)
 adjacency_matrix <- -adjacency_matrix
@@ -160,9 +168,7 @@ for (i in 1:(T-1)) {
   space_constr[((i - 1) * n + 1):(i * n), i] <- 1
 }
 
-# N * S - (N - 1) * (S - 1) = N + S - 1
-
-tmp <- cbind(time_constr, space_constr) 
+constraint.IV <- cbind(time_constr, space_constr) 
 ```
 
 
@@ -187,7 +193,7 @@ delta.III = rnorm.Q(delta.prec.III,                  # Precision matrix delta.II
 
 delta.IV = rnorm.Q(delta.prec.IV,                  # Precision matrix delta.IV
                 mu = zero_vector_interaction,       # Prior mean delta.IV (0,..,0)
-                X = tmp, 
+                X = constraint.IV, 
                 zero.constraint = TRUE            # Make it so samples are orthogonal to (1,...,1)
                 )
 ```
@@ -238,7 +244,8 @@ for(t in 1:T){
 ```
 
 ```{r heat_map}
-map$disease <- y_binom.IV[5,]
+
+map$disease <- y_binom.III[1,]
 
 plot(map['disease'])
 ```
