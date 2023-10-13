@@ -275,7 +275,14 @@ basic_lin_pred <- deaths ~ 1 + f(year, model = "bym2", scale.model = T,
                                       param = c(1, 0.01) #Magic number
                                     )
                                   ))
+```
 
+```{r fit_basic_model}
+basic_fit <- inla(basic_linear_predictor,
+                 data = ohio_df,
+                 family = "poisson",
+                 E = expected,
+                 control.compute = list(config = TRUE)) # needed if you want to see constraints later
 
 
 

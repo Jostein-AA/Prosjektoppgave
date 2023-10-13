@@ -1,0 +1,614 @@
+---
+title: "First_fits"
+author: "Jostein Aasteboel, Aanes and 10920007"
+date: "2023-09-27"
+output: html_document
+---
+
+## Load libraries
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Load libraries
+library(INLA)
+library(tidyverse)
+library(spData)
+library(sf)
+library(spdep)
+library(ggplot2)
+library(ggspatial)
+require(mgcv)
+library(MASS)
+library(fastmatrix)
+library(rwc)
+library(gridExtra)
+library(ggpubr)
+library(roahd)
+
+#Load other files
+source("functions_plotting_etc.R")
+source("linear_predictor_formula_function.R")
+```
+
+## Load
+
+```{r}
+#Load data and structure matrices
+struct_RW1 = readMM(file='struct_RW1.txt')
+struct_RW2 = readMM(file = 'struct_RW2.txt')
+ICAR_structure = readMM(file = 'ICAR_struct.txt')
+
+ohio_df <- read.csv("ohio_df.csv")
+
+# read the shapefile of ohio
+ohio_map  <- read_sf('./fe_2007_39_county')[ ,c("geometry", "NAME")]
+ohio_map <- ohio_map[order(ohio_map$NAME), ]
+nb <- spdep::poly2nb(ohio_map, queen = FALSE)
+
+#Necessities
+n <- length(unique(ohio_df$county))   # Number of areas
+T <- length(unique(ohio_df$year))     # Number of time points
+
+#Used for heat map plotting
+bins_hardcoded = c(0, 0.15, 0.3, 0.5, 0.65, 0.8, 1, 1.25)
+```
+
+
+## Explorative plot of data
+
+```{r}
+#Dont know if necessary to merge now at all?
+to_plot_potentially <- merge(ohio_map, ohio_df,
+                  by.x = c("NAME"), by.y = c("county_name"),
+                   all = T, suffixes = T)
+```
+
+
+### Heatmaps
+```{r}
+#From the heatmaps it seems that the rate is increasing over time 
+plot_all_years(to_plot_potentially, bins_hardcoded,
+               ncol = 7, nrow = 6,
+               widths = c(2, 0.05, 2, 0.05, 2, 0.05, 2))
+
+```
+
+### Depth measures for the time series of each county
+```{r}
+#Depth measures over time-series for each county???
+grid = unique(ohio_df$year)
+temp_ = ohio_df[ohio_df$county_name == unique(ohio_df$county_name)[1], ]
+temp_data = temp_$rate
+for(county in unique(ohio_df$county_name)[2:length(unique(ohio_df$county_name))]){
+  temp_ = ohio_df[ohio_df$county_name == county, ]
+  temp_data = rbind(temp_data, temp_$rate)
+  #temp_fd = fData(grid, temp_$deaths)
+}
+fdata <- fData(grid, temp_data)
+
+band_depth = BD(fdata)
+modified_band_depth = MBD(fdata)
+median_curve = median_fData(fdata, type = "MBD")
+
+
+#Weak evidence of trend, maybe RW2 performs better
+plot(fdata)
+lines(grid, median_curve$values, lwd = 3)
+lines(grid, 0.3 + 1.4 * 10**(-2) * grid, lwd = 2, col = "red")
+
+#indicates a trend, there is also some weird shapes
+```
+
+
+
+## Hyperparameters and corresponding priors
+```{r}
+#Temporal
+temporal_hyper = list(prec.unstruct = list(prior = 'loggamma', 
+                                           param = c(1, 5e-05)), #Magic numbers
+                      prec.spatial = list(prior = 'loggamma', 
+                                           param = c(1, 5e-05)) #Magic numbers
+) 
+
+#Spatial
+spatial_hyper = list(prec.unstruct = list(prior = 'loggamma', 
+                                           param = c(1, 5e-05)), #Magic numbers
+                      prec.spatial = list(prior = 'loggamma', 
+                                           param = c(1, 5e-05)) #Magic numbers
+)
+
+```
+
+
+## Base linear predictor w.o. interaction terms
+```{r}
+#Hyper parameters and hyper priors
+basic_linear_predictor <- linear_predictor_formula(formula = 'base',
+                                                   temporal_model = 'bym',
+                                                   temporal_rank_def = 1,
+                                                   temporal_structure_matrix = struct_RW1,
+                                                   temporal_hyper = temporal_hyper,
+                                                   spatial_model = 'bym',
+                                                   spatial_rank_def = 1,
+                                                   spatial_structure_matrix = ICAR_structure,
+                                                   spatial_hyper = spatial_hyper)
+
+```
+
+
+### Model w.o. interactions fitted 
+```{r basic_fit_no_interactions}
+basic_model_fit <- inla(basic_linear_predictor,
+                 data = ohio_df,
+                 family = "poisson",
+                 E = expected, #Is it supposed to be expected or population at risk???
+                 control.compute = list(config = TRUE, # needed if you want to see constraints later
+                                        cpo = T), #Needed for model selection
+                 verbose = F #Not T unless want to see a lot of stuff
+                 ) 
+
+print(c("Number of constraints (should be 2): ",toString(basic_model_fit$misc$configs$constr$nc)))
+print(c("CPO:", toString(mean(basic_model_fit$cpo$cpo))))
+print(c("CPO failiure, should have 1 unique value",
+        toString(length(unique(basic_model_fit$cpo$failure))))) #-> soinla.cpo(res)
+print(c("And that value is (should be 0): ", toString(basic_model_fit$cpo$failure[1])))
+```
+
+### Heat map for each year of the base linear predictor
+
+
+```{r}
+#Extract predictions
+#Make dataframe with years and county marked
+fitted_values <- data.frame(basic_model_fit$summary.fitted.values$mean)
+
+#This is not actually rate here tho. It is fitted values which is ???
+colnames(fitted_values) <- "rate"
+
+fitted_values$year <- ohio_df$year
+fitted_values$county <- ohio_df$county
+fitted_values$county_name <- ohio_df$county_name
+fitted_values$pop_at_risk <- ohio_df$pop_at_risk
+
+#Merge with geometry
+fitted_values <- merge(ohio_map, fitted_values,
+                   by.x = c("NAME"), by.y = c("county_name"),
+                   all = T, suffixes = T)
+
+
+plot_all_years(fitted_values, bins_hardcoded,
+               ncol = 7, nrow = 6,
+               widths = c(2, 0.05, 2, 0.05, 2, 0.05, 2))
+```
+
+
+```{r}
+#Get difference and plot
+fitted_values$rate <- fitted_values$rate - ohio_df$rate
+
+#From plots its clear that predictions gets worse and worse
+#But for certain regions only
+plot_all_years(fitted_values, bins_hardcoded,
+               ncol = 7, nrow = 6,
+               widths = c(2, 0.05, 2, 0.05, 2, 0.05, 2))
+```
+
+## Model w. type I interaction fitted
+
+```{r}
+# Type I Interaction:
+ohio_df$space_time_unstructured <- 1:(n*T)
+
+#Model w. type I interaction
+model_w_type_I <- update(basic_linear_predictor,
+                         ~. + f(space_time_unstructured,
+                                model="iid",
+                                hyper = list(
+                                  prec = list(
+                                    param = c(1, 0.001))
+                                  )
+                                )
+                         )
+
+
+model_w_type_I_fit <- inla(model_w_type_I,
+                           data = ohio_df,
+                           family = 'poisson',
+                           E = expected,
+                           control.compute = list(config = TRUE, # needed if you want to see constraints later
+                                        cpo = TRUE), #Needed for model choice
+                 verbose = F #Not T unless want to see a lot of stuff
+                 )
+```
+
+
+```{r}
+print("Number of constraints (should be 2):")
+print(model_w_type_I_fit$misc$configs$constr$nc)
+print("CPO:")
+print(mean(model_w_type_I_fit$cpo$cpo))
+print("CPO failiure, should have 1 unique value")
+print(length(unique(model_w_type_I_fit$cpo$failure)))
+print("The unique value of CPO failiure should be 0")
+print(model_w_type_I_fit$cpo$failure[1])
+
+#Is the cpo larger than that of the basic model
+print("cpo larger for this model than previous best: ")
+print(mean(model_w_type_I_fit$cpo$cpo) > mean(basic_model_fit$cpo$cpo))
+```
+
+```{r}
+#Extract predictions
+#Make dataframe with years and county marked
+fitted_values <- data.frame(model_w_type_I_fit$summary.fitted.values$mean)
+
+#This is not actually rate here tho. It is fitted number of deaths
+colnames(fitted_values) <- "rate"
+
+fitted_values$year <- ohio_df$year
+fitted_values$county <- ohio_df$county
+fitted_values$county_name <- ohio_df$county_name
+fitted_values$pop_at_risk <- ohio_df$pop_at_risk
+
+#Merge with geometry
+fitted_values <- merge(ohio_map, fitted_values,
+                   by.x = c("NAME"), by.y = c("county_name"),
+                   all = T, suffixes = T)
+
+```
+
+
+```{r}
+plot_all_years(fitted_values, bins_hardcoded,
+               ncol = 7, nrow = 6,
+               widths = c(2, 0.05, 2, 0.05, 2, 0.05, 2))
+
+```
+```{r}
+#Get difference and plot
+fitted_values$rate <- fitted_values$rate - ohio_df$rate
+
+#The fit gets progressively worse with time
+plot_all_years(fitted_values, bins_hardcoded,
+               ncol = 7, nrow = 6,
+               widths = c(2, 0.05, 2, 0.05, 2, 0.05, 2))
+```
+
+## Model w. type II interaction
+
+```{r}
+# Type II: RW-time x iid-space
+# creating constraint matrix needed for Type II Interaction
+
+#sum-to-zero constraint be wilding
+# - n rows as this interaction makes it so there is a RW for each county independent of each other
+# - n * T columns as there are a total of n * T interaction terms (delta_(it))
+# - sets A[i, which((0:(n * T - 1))%%n == i - 1)] = 1, as for county i, the interaction (delta_(it))
+#     is only dependent on (delta_(i,t+-1)). Therefore the sum-to-zero is over these 88 RWs
+
+A <- matrix(0, nrow = n, ncol = n * T)
+
+for (i in 1:n) { 
+  #Should it be 0:(n*T - 1)%%(n) == i - 1, used to be 1:(n*T)%%n == i - 1
+  A[i, which((0:(n * T - 1))%%n == i - 1)] <- 1
+}
+
+# specify constraints in INLA-ready format
+constr.st <- list(A = A, e = rep(0, dim(A)[1]))
+
+# Kronecker product between RW1 and IID space term
+# order matters here! In our data set, the time ordering take precedent over the space ordering
+# so we must have the RW on the left and space on the right
+# Optionally, we scale the matrix beforehand as well
+scaled_RW_prec <- inla.scale.model(struct_RW1, list(A = matrix(1,
+                                                               1,
+                                                               dim(struct_RW1)[1]),
+                                                    e = 0))
+
+# Structure matrix interaction = RW Kronecker iid county
+R <- scaled_RW_prec %x% diag(n)
+
+formulaII <- update(basic_linear_predictor, ~. + f(space_time_unstructured, 
+                                         model = "generic0",
+                                         Cmatrix = R,
+                                         extraconstr = constr.st, 
+                                         rankdef = n, 
+                                         param = c(1, 0.01)))
+
+
+
+modII <- inla(formulaII,
+              data = ohio_df,
+              family = "poisson",
+              E = expected,
+              control.compute = list(config = TRUE, cpo = TRUE))
+
+print("Number of constraints (should be 2 + 88 = 90):")
+print(modII$misc$configs$constr$nc)
+print("CPO:")
+print(mean(modII$cpo$cpo))
+print("CPO failiure, should have 1 unique value")
+print(length(unique(modII$cpo$failure)))
+print("The unique value of CPO failiure should be 0")
+print(modII$cpo$failure[1])
+
+#Is the cpo larger than that of the basic model
+print("cpo larger for this model than previous best: ")
+print(mean(modII$cpo$cpo) > mean(basic_model_fit$cpo$cpo))
+```
+
+```{r}
+#Extract predictions
+#Make dataframe with years and county marked
+fitted_values <- data.frame(modII$summary.fitted.values$mean)
+
+#This is not actually rate here tho. It is fitted number of deaths
+colnames(fitted_values) <- "rate"
+
+fitted_values$year <- ohio_df$year
+fitted_values$county <- ohio_df$county
+fitted_values$county_name <- ohio_df$county_name
+fitted_values$pop_at_risk <- ohio_df$pop_at_risk
+
+#Merge with geometry
+fitted_values <- merge(ohio_map, fitted_values,
+                   by.x = c("NAME"), by.y = c("county_name"),
+                   all = T, suffixes = T)
+
+plot_all_years(fitted_values, bins_hardcoded)
+```
+
+```{r}
+#Get difference and plot
+fitted_values$rate <- fitted_values$rate - ohio_df$rate
+
+#Gets progressively worse with time
+plot_all_years(fitted_values, bins_hardcoded)
+```
+
+## Model w. type III interaction
+
+
+```{r}
+
+#Type III interaction
+
+#- Constraints: The ICAR at each time needs to sum to 0
+
+### creating constraint needed for Type III Interaction
+A <- matrix(0, nrow = T, ncol = n * T)
+for (i in 1:T) {
+  # The ICAR at each time point needs to sum to 0
+  A[i, ((i - 1) * n + 1):(i * n)] <- 1
+}
+
+### defining Kronecker product for the Type III Interaction
+# get scaled ICAR
+scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_structure, 
+                                           constr = list(A = matrix(1,
+                                                                    1,
+                                                                    dim(ICAR_structure)[1]),
+                                                         e = 0))
+
+# Kronecker product between IID x ICAR
+R <- diag(T) %x% ICAR_structure 
+
+# specify constraints in INLA-ready format
+constr.st <- list(A = A, e = rep(0, dim(A)[1]))
+
+formulaIII <- update(basic_linear_predictor, ~. + f(space_time_unstructured, 
+                                          model = "generic0",
+                                          Cmatrix = R,
+                                          extraconstr = constr.st, 
+                                          rankdef = T, 
+                                          param = c(1, 0.01)))
+
+
+modIII <- inla(formulaIII,
+              data = ohio_df,
+              family = "poisson",
+              E = expected,
+              control.compute = list(config = TRUE, cpo = TRUE))
+
+
+
+# Check the number of constraints in our model
+# We should have:
+# - 1 sum-to-zero constraint for the BYM2 in space
+# - 1 sum-to-zero constraint for the BYM2 in time
+# - S constraints for the Type III Interaction
+# - 2 + S constraints total
+
+print("Number of constraints (should be 2 + 21 = 23):")
+print(modIII$misc$configs$constr$nc)
+print("CPO:")
+print(mean(modIII$cpo$cpo))
+print("CPO failiure, should have 1 unique value")
+print(length(unique(modIII$cpo$failure)))
+print("The unique value of CPO failiure should be 0")
+print(modIII$cpo$failure[1])
+
+#Is the cpo larger than that of the basic model
+print("cpo larger for this model than previous best: ")
+print(mean(modIII$cpo$cpo) > mean(basic_model_fit$cpo$cpo))
+```
+
+```{r}
+#Extract predictions
+#Make dataframe with years and county marked
+fitted_values <- data.frame(modIII$summary.fitted.values$mean)
+
+#This is not actually rate here tho. It is fitted number of deaths
+colnames(fitted_values) <- "rate"
+
+fitted_values$year <- ohio_df$year
+fitted_values$county <- ohio_df$county
+fitted_values$county_name <- ohio_df$county_name
+fitted_values$pop_at_risk <- ohio_df$pop_at_risk
+
+#Merge with geometry
+fitted_values <- merge(ohio_map, fitted_values,
+                   by.x = c("NAME"), by.y = c("county_name"),
+                   all = T, suffixes = T)
+
+plot_all_years(fitted_values, bins_hardcoded)
+
+```
+```{r}
+#Get difference and plot
+fitted_values$rate <- fitted_values$rate - ohio_df$rate
+
+#Gets worse with time
+plot_all_years(fitted_values, bins_hardcoded)
+```
+
+## Model w. type IV interaction
+
+```{r}
+
+# Type IV Interaction ----------------------------------------------------------
+
+# Specifying constraints needed for Type IV Interaction
+time_constr <- matrix(0, n, n * T)
+for (i in 1:n) {
+  time_constr[i, which((0:(n * T - 1))%%n == i - 1)] <- 1
+}
+space_constr <- matrix(0, T-1, n * T)
+# theoretically it's enough to only go through N-1 here
+# note that we could have instead done 1:(S-1) in the first loop and 1:N in the second
+for (i in 1:(T-1)) { 
+  space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
+}
+
+# N * S - (N - 1) * (S - 1) = N + S - 1
+
+tmp <- rbind(time_constr, space_constr) 
+constr.st <- list(A = tmp, e = rep(0, dim(tmp)[1]))
+
+# Kronecker product between ICAR x RW1
+R <- scaled_RW_prec %x% scaled_ICAR_prec
+
+formulaIV <- update(basic_linear_predictor, ~. + f(space_time_unstructured, 
+                                         model = "generic0",
+                                         Cmatrix = R,
+                                         extraconstr = constr.st,
+                                         rankdef = n + T - 1, 
+                                         param = c(1, 0.01)))
+
+#  Time difference of ~ 20 minutes on my personal machine
+
+modIV <- inla(formulaIV,
+               data = ohio_df,
+               family = "poisson",
+               E = expected,
+               control.compute = list(config = TRUE, cpo = TRUE))
+
+
+
+
+
+# Check the number of constraints in our model
+# We should have:
+# - 1 sum-to-zero constraint for the BYM2 in space
+# - 1 sum-to-zero constraint for the BYM2 in time
+# - N + S - 1 constraints for the Type IV Interaction
+# - N + S + 1 constraints total
+print("Number of constraints (should be 1 + 21 + 88 = 110):")
+print(modIV$misc$configs$constr$nc)
+print("CPO:")
+print(mean(modIV$cpo$cpo))
+print("CPO failiure, should have 1 unique value")
+print(length(unique(modIV$cpo$failure)))
+print("The unique value of CPO failiure should be 0")
+print(modIV$cpo$failure[1])
+
+#Is the cpo larger than that of the basic model
+print("cpo larger for this model than previous best: ")
+print(mean(modIV$cpo$cpo) > mean(basic_model_fit$cpo$cpo))
+
+```
+
+```{r}
+#Extract predictions
+#Make dataframe with years and county marked
+fitted_values <- data.frame(modIV$summary.fitted.values$mean)
+
+#This is not actually rate here tho. It is fitted number of deaths
+colnames(fitted_values) <- "rate"
+
+fitted_values$year <- ohio_df$year
+fitted_values$county <- ohio_df$county
+fitted_values$county_name <- ohio_df$county_name
+fitted_values$pop_at_risk <- ohio_df$pop_at_risk
+
+#Merge with geometry
+fitted_values <- merge(ohio_map, fitted_values,
+                   by.x = c("NAME"), by.y = c("county_name"),
+                   all = T, suffixes = T)
+
+plot_all_years(fitted_values, bins_hardcoded)
+```
+
+```{r}
+#Get difference and plot
+fitted_values$rate <- fitted_values$rate - ohio_df$rate
+
+#Gets worse with time
+plot_all_years(fitted_values, bins_hardcoded)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
+
