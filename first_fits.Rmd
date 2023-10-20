@@ -28,25 +28,27 @@ library(roahd)
 
 #Load other files
 source("functions_plotting_etc.R")
-source("linear_predictor_formula_function.R")
 ```
 
 ## Load
 
 ```{r}
-#Load data and structure matrices
+#Load structure matrices
 struct_RW1 = readMM(file='struct_RW1.txt')
 struct_RW2 = readMM(file = 'struct_RW2.txt')
 ICAR_structure = readMM(file = 'ICAR_struct.txt')
 
+#Load data
 ohio_df <- read.csv("ohio_df.csv")
 
-# read the shapefile of ohio
+#read the shapefile of ohio
 ohio_map  <- read_sf('./fe_2007_39_county')[ ,c("geometry", "NAME")]
 ohio_map <- ohio_map[order(ohio_map$NAME), ]
+
+#Calculate adjacencies (if needed)
 nb <- spdep::poly2nb(ohio_map, queen = FALSE)
 
-#Necessities
+#Get number of counties (n) and number of years (T)
 n <- length(unique(ohio_df$county))   # Number of areas
 T <- length(unique(ohio_df$year))     # Number of time points
 
@@ -104,18 +106,20 @@ lines(grid, 0.3 + 1.4 * 10**(-2) * grid, lwd = 2, col = "red")
 
 ## Hyperparameters and corresponding priors
 ```{r}
+#Use pc prior
+
 #Temporal
-temporal_hyper = list(prec.unstruct = list(prior = 'loggamma', 
-                                           param = c(1, 5e-05)), #Magic numbers
-                      prec.spatial = list(prior = 'loggamma', 
-                                           param = c(1, 5e-05)) #Magic numbers
+temporal_hyper = list(prec.unstruct = list(prior = 'pc.prec', 
+                                           param = c(1, 0.01)), #Magic numbers
+                      prec.spatial = list(prior = 'pc.prec', 
+                                           param = c(1, 0.01)) #Magic numbers
 ) 
 
 #Spatial
-spatial_hyper = list(prec.unstruct = list(prior = 'loggamma', 
-                                           param = c(1, 5e-05)), #Magic numbers
-                      prec.spatial = list(prior = 'loggamma', 
-                                           param = c(1, 5e-05)) #Magic numbers
+spatial_hyper = list(prec.unstruct = list(prior = 'pc.prec', 
+                                           param = c(1, 0.01)), #Magic numbers
+                      prec.spatial = list(prior = 'pc.prec', 
+                                           param = c(1, 0.01)) #Magic numbers
 )
 
 ```
@@ -123,36 +127,46 @@ spatial_hyper = list(prec.unstruct = list(prior = 'loggamma',
 
 ## Base linear predictor w.o. interaction terms
 ```{r}
-#Hyper parameters and hyper priors
-basic_linear_predictor <- linear_predictor_formula(formula = 'base',
-                                                   temporal_model = 'bym',
-                                                   temporal_rank_def = 1,
-                                                   temporal_structure_matrix = struct_RW1,
-                                                   temporal_hyper = temporal_hyper,
-                                                   spatial_model = 'bym',
-                                                   spatial_rank_def = 1,
-                                                   spatial_structure_matrix = ICAR_structure,
-                                                   spatial_hyper = spatial_hyper)
 
-```
+#Make the base formula (is the overall mean specified correctly here???)
+basic_linear_formula <- deaths ~ 1 + f(year, 
+                                   model = 'bym',
+                                   scale.model = T, 
+                                   constr = T, 
+                                   rankdef = 1,
+                                   graph = struct_RW1,
+                                   hyper = temporal_hyper
+                                   ) + 
+                                  f(county, 
+                                    model = 'bym',
+                                    scale.model = T,
+                                    constr = T,
+                                    rankdef = 1,
+                                    graph = ICAR_structure,
+                                    hyper = spatial_hyper
+                                  )
 
-
-### Model w.o. interactions fitted 
-```{r basic_fit_no_interactions}
-basic_model_fit <- inla(basic_linear_predictor,
+#Measure time to do inference
+ptm <- Sys.time()
+basic_model_fit <- inla(basic_linear_formula,
                  data = ohio_df,
                  family = "poisson",
-                 E = expected, #Is it supposed to be expected or population at risk???
+                 E = pop_at_risk, #Is it supposed to be expected or population at risk???
                  control.compute = list(config = TRUE, # needed if you want to see constraints later
-                                        cpo = T), #Needed for model selection
+                                        cpo = T,
+                                        waic = T), #Needed for model selection
                  verbose = F #Not T unless want to see a lot of stuff
                  ) 
+time = Sys.time()-ptm
+
 
 print(c("Number of constraints (should be 2): ",toString(basic_model_fit$misc$configs$constr$nc)))
-print(c("CPO:", toString(mean(basic_model_fit$cpo$cpo))))
+print(c("mean CPO:", toString(round(mean(basic_model_fit$cpo$cpo), digits = 4))))
 print(c("CPO failiure, should have 1 unique value",
         toString(length(unique(basic_model_fit$cpo$failure))))) #-> soinla.cpo(res)
 print(c("And that value is (should be 0): ", toString(basic_model_fit$cpo$failure[1])))
+print(c("CPU: ", toString(summary(basic_model_fit)$cpu.used)))
+print(c("Time to compute", toString(time)))
 ```
 
 ### Heat map for each year of the base linear predictor
@@ -161,6 +175,10 @@ print(c("And that value is (should be 0): ", toString(basic_model_fit$cpo$failur
 ```{r}
 #Extract predictions
 #Make dataframe with years and county marked
+
+# What am I actually fitting, what do I get out???
+# How does Poisson regression actually work
+
 fitted_values <- data.frame(basic_model_fit$summary.fitted.values$mean)
 
 #This is not actually rate here tho. It is fitted values which is ???
@@ -198,46 +216,38 @@ plot_all_years(fitted_values, bins_hardcoded,
 
 ```{r}
 # Type I Interaction:
-ohio_df$space_time_unstructured <- 1:(n*T)
+interaction_hypers = list(prec = list(param = c(1, 0.01)))
 
-#Model w. type I interaction
-model_w_type_I <- update(basic_linear_predictor,
-                         ~. + f(space_time_unstructured,
-                                model="iid",
-                                hyper = list(
-                                  prec = list(
-                                    param = c(1, 0.001))
-                                  )
-                                )
-                         )
+typeI_formula <- update(basic_linear_formula, 
+                        ~. + f(space_time_unstructured,
+                               model="iid", #Has to be iid, whole point
+                               hyper = interaction_hypers ))
+      
 
 
-model_w_type_I_fit <- inla(model_w_type_I,
-                           data = ohio_df,
-                           family = 'poisson',
-                           E = expected,
-                           control.compute = list(config = TRUE, # needed if you want to see constraints later
-                                        cpo = TRUE), #Needed for model choice
-                 verbose = F #Not T unless want to see a lot of stuff
-                 )
+
+
+ptm <- Sys.time()
+typeI_fit <- inla(typeI_formula,
+                  data = ohio_df,
+                  family = 'poisson',
+                  E = pop_at_risk,
+                  control.compute = list(config = TRUE, # needed if you want to see constraints later
+                                         cpo = TRUE,    #Needed for model choice
+                                         waic = TRUE), 
+                  verbose = F #Not T unless want to see a lot of stuff
+                  )
+time = Sys.time() - ptm
+print(c("Number of constraints (should be 2): ",toString(typeI_fit$misc$configs$constr$nc)))
+print(c("mean CPO:", toString(round(mean(typeI_fit$cpo$cpo), digits = 4))))
+print(c("CPO failiure, should have 1 unique value",
+        toString(length(unique(typeI_fit$cpo$failure))))) #-> soinla.cpo(res)
+print(c("And that value is (should be 0): ", toString(typeI_fit$cpo$failure[1])))
+print(c("CPU: ", toString(summary(typeI_fit)$cpu.used)))
+print(c("Time: ", time))
 ```
 
-
-```{r}
-print("Number of constraints (should be 2):")
-print(model_w_type_I_fit$misc$configs$constr$nc)
-print("CPO:")
-print(mean(model_w_type_I_fit$cpo$cpo))
-print("CPO failiure, should have 1 unique value")
-print(length(unique(model_w_type_I_fit$cpo$failure)))
-print("The unique value of CPO failiure should be 0")
-print(model_w_type_I_fit$cpo$failure[1])
-
-#Is the cpo larger than that of the basic model
-print("cpo larger for this model than previous best: ")
-print(mean(model_w_type_I_fit$cpo$cpo) > mean(basic_model_fit$cpo$cpo))
-```
-
+### Heatmap for each year of linear predictor w. typeI interactions
 ```{r}
 #Extract predictions
 #Make dataframe with years and county marked
@@ -256,10 +266,7 @@ fitted_values <- merge(ohio_map, fitted_values,
                    by.x = c("NAME"), by.y = c("county_name"),
                    all = T, suffixes = T)
 
-```
 
-
-```{r}
 plot_all_years(fitted_values, bins_hardcoded,
                ncol = 7, nrow = 6,
                widths = c(2, 0.05, 2, 0.05, 2, 0.05, 2))
@@ -281,63 +288,63 @@ plot_all_years(fitted_values, bins_hardcoded,
 # Type II: RW-time x iid-space
 # creating constraint matrix needed for Type II Interaction
 
-#sum-to-zero constraint be wilding
+#sum-to-zero constraint be wilding (Is it the right way??? Does it actually do what it is supposed to???)
 # - n rows as this interaction makes it so there is a RW for each county independent of each other
 # - n * T columns as there are a total of n * T interaction terms (delta_(it))
 # - sets A[i, which((0:(n * T - 1))%%n == i - 1)] = 1, as for county i, the interaction (delta_(it))
 #     is only dependent on (delta_(i,t+-1)). Therefore the sum-to-zero is over these 88 RWs
-
+# - Constraints: The RW1 in each area needs to sum to 0. Hence in constr.st e is a zero vector
 A <- matrix(0, nrow = n, ncol = n * T)
-
-for (i in 1:n) { 
+for (i in 1:n) {
   #Should it be 0:(n*T - 1)%%(n) == i - 1, used to be 1:(n*T)%%n == i - 1
   A[i, which((0:(n * T - 1))%%n == i - 1)] <- 1
 }
 
-# specify constraints in INLA-ready format
+
+
 constr.st <- list(A = A, e = rep(0, dim(A)[1]))
+
+#scaled_RW_prec <- inla.scale.model(struct_RW1,
+#                                   list(A = matrix(1, 1, dim(struct_RW1)[1]),
+#                                                    e = 0))
 
 # Kronecker product between RW1 and IID space term
 # order matters here! In our data set, the time ordering take precedent over the space ordering
 # so we must have the RW on the left and space on the right
-# Optionally, we scale the matrix beforehand as well
-scaled_RW_prec <- inla.scale.model(struct_RW1, list(A = matrix(1,
-                                                               1,
-                                                               dim(struct_RW1)[1]),
-                                                    e = 0))
+R <- struct_RW1 %x% diag(n)
 
-# Structure matrix interaction = RW Kronecker iid county
-R <- scaled_RW_prec %x% diag(n)
+interaction_param = c(1, 0.01)
 
-formulaII <- update(basic_linear_predictor, ~. + f(space_time_unstructured, 
-                                         model = "generic0",
-                                         Cmatrix = R,
-                                         extraconstr = constr.st, 
-                                         rankdef = n, 
-                                         param = c(1, 0.01)))
+typeII_formula <- update(basic_linear_formula,
+                         ~. + f(space_time_unstructured, 
+                                model = "generic0", 
+                                Cmatrix = R, 
+                                extraconstr = constr.st, 
+                                rankdef = n, 
+                                param = interaction_param))
 
 
 
-modII <- inla(formulaII,
+ptm <- Sys.time()
+modII <- inla(typeII_formula,
               data = ohio_df,
               family = "poisson",
-              E = expected,
-              control.compute = list(config = TRUE, cpo = TRUE))
+              E = pop_at_risk,
+              control.compute = list(config = TRUE,
+                                     cpo = TRUE,
+                                     waic = TRUE))
+time = Sys.time() - ptm
 
-print("Number of constraints (should be 2 + 88 = 90):")
-print(modII$misc$configs$constr$nc)
-print("CPO:")
-print(mean(modII$cpo$cpo))
-print("CPO failiure, should have 1 unique value")
-print(length(unique(modII$cpo$failure)))
-print("The unique value of CPO failiure should be 0")
-print(modII$cpo$failure[1])
-
-#Is the cpo larger than that of the basic model
-print("cpo larger for this model than previous best: ")
-print(mean(modII$cpo$cpo) > mean(basic_model_fit$cpo$cpo))
+print(c("Number of constraints (should be 2 + 88 = 90): ",toString(modII$misc$configs$constr$nc)))
+print(c("mean CPO:", toString(round(mean(modII$cpo$cpo), digits = 4))))
+print(c("CPO failiure, should have 1 unique value",
+        toString(length(unique(modII$cpo$failure))))) #-> soinla.cpo(res)
+print(c("And that value is (should be 0): ", toString(modII$cpo$failure[1])))
+print(c("CPU: ", toString(summary(modII)$cpu.used)))
+print(c("Time: ", time))
 ```
 
+### Heatmaps etc
 ```{r}
 #Extract predictions
 #Make dataframe with years and county marked
@@ -385,11 +392,11 @@ for (i in 1:T) {
 
 ### defining Kronecker product for the Type III Interaction
 # get scaled ICAR
-scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_structure, 
-                                           constr = list(A = matrix(1,
-                                                                    1,
-                                                                    dim(ICAR_structure)[1]),
-                                                         e = 0))
+#scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_structure, 
+#                                           constr = list(A = matrix(1,
+#                                                                    1,
+#                                                                    dim(ICAR_structure)[1]),
+#                                                         e = 0))
 
 # Kronecker product between IID x ICAR
 R <- diag(T) %x% ICAR_structure 
@@ -397,42 +404,39 @@ R <- diag(T) %x% ICAR_structure
 # specify constraints in INLA-ready format
 constr.st <- list(A = A, e = rep(0, dim(A)[1]))
 
-formulaIII <- update(basic_linear_predictor, ~. + f(space_time_unstructured, 
-                                          model = "generic0",
-                                          Cmatrix = R,
-                                          extraconstr = constr.st, 
-                                          rankdef = T, 
-                                          param = c(1, 0.01)))
+interactions_param = c(1, 0.01)
+
+#Model w. type III interaction
+typeIII_formula <- update(basic_linear_formula, 
+                          ~. + f(space_time_unstructured, 
+                                model = "generic0", 
+                                Cmatrix = R, 
+                                extraconstr = constr.st, 
+                                rankdef = T, 
+                                param = interaction_param))
 
 
-modIII <- inla(formulaIII,
+ptm <- Sys.time()
+modIII <- inla(typeIII_formula,
               data = ohio_df,
               family = "poisson",
-              E = expected,
-              control.compute = list(config = TRUE, cpo = TRUE))
+              E = pop_at_risk,
+              control.compute = list(config = TRUE, 
+                                     cpo = TRUE,
+                                     waic = TRUE))
+time = Sys.time() - ptm
 
 
+print(c("Number of constraints (should be 2 + 21 = 23): ",toString(modIII$misc$configs$constr$nc)))
+print(c("mean CPO:", toString(round(mean(modIII$cpo$cpo), digits = 4))))
+print(c("CPO failiure, should have 1 unique value",
+        toString(length(unique(modIII$cpo$failure))))) #-> soinla.cpo(res)
+print(c("And that value is (should be 0): ", toString(modIII$cpo$failure[1])))
+print(c("CPU: ", toString(summary(modIII)$cpu.used)))
+print(c("Time: ", time))
 
-# Check the number of constraints in our model
-# We should have:
-# - 1 sum-to-zero constraint for the BYM2 in space
-# - 1 sum-to-zero constraint for the BYM2 in time
-# - S constraints for the Type III Interaction
-# - 2 + S constraints total
-
-print("Number of constraints (should be 2 + 21 = 23):")
-print(modIII$misc$configs$constr$nc)
-print("CPO:")
-print(mean(modIII$cpo$cpo))
-print("CPO failiure, should have 1 unique value")
-print(length(unique(modIII$cpo$failure)))
-print("The unique value of CPO failiure should be 0")
-print(modIII$cpo$failure[1])
-
-#Is the cpo larger than that of the basic model
-print("cpo larger for this model than previous best: ")
-print(mean(modIII$cpo$cpo) > mean(basic_model_fit$cpo$cpo))
 ```
+### Heatmaps and stuff
 
 ```{r}
 #Extract predictions
@@ -476,34 +480,38 @@ for (i in 1:n) {
 }
 space_constr <- matrix(0, T-1, n * T)
 # theoretically it's enough to only go through N-1 here
-# note that we could have instead done 1:(S-1) in the first loop and 1:N in the second
+# note that we could have instead done 1:(T-1) in the first loop and 1:n in the second
 for (i in 1:(T-1)) { 
   space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
 }
 
-# N * S - (N - 1) * (S - 1) = N + S - 1
 
 tmp <- rbind(time_constr, space_constr) 
 constr.st <- list(A = tmp, e = rep(0, dim(tmp)[1]))
 
 # Kronecker product between ICAR x RW1
-R <- scaled_RW_prec %x% scaled_ICAR_prec
+R <- struct_RW1 %x% ICAR_structure
 
-formulaIV <- update(basic_linear_predictor, ~. + f(space_time_unstructured, 
-                                         model = "generic0",
-                                         Cmatrix = R,
-                                         extraconstr = constr.st,
-                                         rankdef = n + T - 1, 
-                                         param = c(1, 0.01)))
+formulaIV <- update(basic_linear_formula,
+                    ~. + f(space_time_unstructured, 
+                           model = "generic0",
+                           Cmatrix = R,
+                           extraconstr = constr.st,
+                           rankdef = n + T - 1, 
+                           param = c(1, 0.01)))
 
 #  Time difference of ~ 20 minutes on my personal machine
 
+ptm <- Sys.time()
 modIV <- inla(formulaIV,
                data = ohio_df,
                family = "poisson",
-               E = expected,
-               control.compute = list(config = TRUE, cpo = TRUE))
+               E = pop_at_risk,
+               control.compute = list(config = TRUE,
+                                      cpo = TRUE,
+                                      waic = TRUE))
 
+time = Sys.time() - ptm
 
 
 
@@ -514,20 +522,18 @@ modIV <- inla(formulaIV,
 # - 1 sum-to-zero constraint for the BYM2 in time
 # - N + S - 1 constraints for the Type IV Interaction
 # - N + S + 1 constraints total
-print("Number of constraints (should be 1 + 21 + 88 = 110):")
-print(modIV$misc$configs$constr$nc)
-print("CPO:")
-print(mean(modIV$cpo$cpo))
-print("CPO failiure, should have 1 unique value")
-print(length(unique(modIV$cpo$failure)))
-print("The unique value of CPO failiure should be 0")
-print(modIV$cpo$failure[1])
 
-#Is the cpo larger than that of the basic model
-print("cpo larger for this model than previous best: ")
-print(mean(modIV$cpo$cpo) > mean(basic_model_fit$cpo$cpo))
+#print(c("Number of constraints (should be 1 + n + T = 110): ",toString(modIV$misc$configs$constr$nc)))
+#print(c("mean CPO:", toString(round(mean(modIV$cpo$cpo), digits = 4))))
+#print(c("CPO failiure, should have 1 unique value",
+#        toString(length(unique(modIV$cpo$failure))))) #-> soinla.cpo(res)
+#print(c("And that value is (should be 0): ", toString(modIV$cpo$failure[1])))
+#print(c("CPU: ", toString(summary(modIV)$cpu.used)))
+#print(c("Time: ", time))
 
 ```
+
+### Heatmaps and stuff
 
 ```{r}
 #Extract predictions

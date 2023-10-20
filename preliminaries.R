@@ -16,7 +16,7 @@ library(roahd)
 library(shapefiles)
 
 #Load other files
-source("./plot_functions.R")
+source("./functions_plotting_etc.R")
 
 
 #Load data: contains deaths, county (not named), year, and expected deaths
@@ -112,6 +112,9 @@ print((length(unique(apply(ICAR_structure, 2, sum))) == 1 &
 #Make the ICAR_structure matrix sparse.
 ICAR_structure <- Matrix(ICAR_structure, sparse = TRUE) #Make it sparse
 
+
+#Add space_time unstructured to ohio_df
+ohio_df$space_time_unstructured <- 1:(n *T)
 
 #Save data and precision matrices
 write.csv(ohio_df, file = "ohio_df.csv", row.names = FALSE)

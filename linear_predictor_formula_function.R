@@ -6,7 +6,12 @@ linear_predictor_formula <- function(formula = 'base',            #Which formula
                                      spatial_model = 'bym',       #What model does spatial effects follow
                                      spatial_rank_def = 1,        #How rank deficient is spatial effects
                                      spatial_structure_matrix,    #The spatial effects structure matrix
-                                     spatial_hyper){              #Spatial effects hyper parameters and hyper priors
+                                     spatial_hyper,               #Spatial effects hyper parameters and hyper priors
+                                     interaction_model = 'generic0', 
+                                     interaction_structure_matrix = NULL,
+                                     interactions_rank_def = NULL,
+                                     interaction_hypers = NULL,   #Hyper parameters and priors of interactions
+                                     extra_constraints = NULL){   #Additional constraints needed for identifiability              
   
   
   #Add different models based on structure, besag vs bym2, etc...
@@ -40,20 +45,35 @@ linear_predictor_formula <- function(formula = 'base',            #Which formula
       return(base_formula)
       
     } else if(formula == 'typeI'){
-      #Add typeI interaction to base fomrula
+      #Add typeI interaction to base formula
+      typeI_formula <- update(base_formula,
+                              ~. + f(space_time_unstructured,
+                                     model="iid", #Has to be iid, whole point
+                                     hyper = interaction_hypers ))
       
       #Return formula w. typeI interaction
-      
+      return(typeI_formula)
+        
     } else if(formula == 'typeII'){
-      #Add typeII interaction to base fomrula
+      #Add typeII interaction to base formula
+      
+      typeII_formula <- update(basic_linear_predictor,
+                               ~. + f(space_time_unstructured, 
+                                      model = interaction_model,
+                                      Cmatrix = interaction_structure_matrix,
+                                      extraconstr = extra_constraints, 
+                                      rankdef = interactions_rank_def, 
+                                      param = interaction_hypers))
       
       #Return formula w. typeII interaction
+      return(typeII_formula)
+      
     } else if(formula == 'typeIII'){
-      #Add typeIII interaction to base fomrula
+      #Add typeIII interaction to base formula
       
       #Return formula w. typeIII interaction
     } else if(formula == 'typeIV'){
-      #Add typeIV interaction to base fomrula
+      #Add typeIV interaction to base formula
       
       #Return formula w. typeIV interaction
     }
