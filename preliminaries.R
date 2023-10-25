@@ -20,7 +20,7 @@ source("./functions_plotting_etc.R")
 
 
 #Load data: contains deaths, county (not named), year, and expected deaths
-raw_df <- read.table("http://faculty.washington.edu/jonno/SISMIDmaterial/ohiodata2_spacetime.txt",header=T)
+#raw_df <- read.table("http://faculty.washington.edu/jonno/SISMIDmaterial/ohiodata2_spacetime.txt",header=T)
 
 #Load second dataset, contains: county, gender, race, year, deaths, number at risk, county name
 raw_df_2 <- read.csv("dataohiocomplete.csv")
@@ -59,24 +59,24 @@ ohio_df = ohio_df[order(ohio_df$Group.3, decreasing = F), ]
 colnames(ohio_df) <- c("year", "county_name", "county", "deaths", "pop_at_risk")
 
 #Check that ohio_df$observed correspond with raw_df$Y (should be the same)
-temp <- ohio_df$deaths - raw_df$Y
-if(length(unique(temp)) == 1 & temp[1] == 0){
-  print("They correspond")
+#temp <- ohio_df$deaths - raw_df$Y
+#if(length(unique(temp)) == 1 & temp[1] == 0){
+#  print("They correspond")
   
   #If they correspond, give ohio_df the expected number of deaths for each county each year
-  ohio_df$expected <- raw_df$E
-} else{
-  print("They do NOT correspond")
-}
+#  ohio_df$expected <- raw_df$E
+#} else{
+#  print("They do NOT correspond")
+#}
 
 #Create copies of time for unstructured/structured random effects
 ohio_df$time.unstructured <- ohio_df$time.structured <- ohio_df$year
 
-#Get death rate pr. 1000 instead (NB: Only for plotting)
-ohio_df$rate <- ohio_df$deaths/(ohio_df$pop_at_risk) * 1000
+#Get death rate instead (NB: Only for plotting)
+ohio_df$rate <- ohio_df$deaths/ohio_df$pop_at_risk
 
 #Add constant to ohio_df
-ohio_df$dummy <- rep(1, length(ohio_df$year))
+#ohio_df$dummy <- rep(1, length(ohio_df$year))
 
 
 #Find dimensions
