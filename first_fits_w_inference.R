@@ -488,7 +488,6 @@ ggarrange(p_1, p_2, p_3, p_4,
 typeI_hyperparameters_priors = list(theta=list(prior="pc.prec",
                                                param=c(1,0.01)))
 
-
 #Make the formula for the model w. type I interaction by updating base formula
 typeI_formula <- update(basic_linear_formula, 
                         ~. + f(space_time_unstructured,
@@ -521,10 +520,240 @@ print(c("Time: ", time))
 ##################
 #Inference on results
 
+plot(typeI_fit)
+
+######
+#Plot the temporal effects
+
+#Format results 
+temporal_effects_fitted <- data.frame(year = 1:T)
+temporal_effects_fitted$q025_struct_effect <- typeI_fit$summary.random$year$'0.025quant'[1:T]
+temporal_effects_fitted$median_struct_effect <- typeI_fit$summary.random$year$'0.5quant'[1:T]
+temporal_effects_fitted$q975_struct_effect <- typeI_fit$summary.random$year$'0.975quant'[1:T]
 
 
 
+#
+ggplot(data = temporal_effects_fitted) + ggtitle("Median structured Temporal effect") +
+  ylab("Temporal effect") + 
+  geom_line(aes(x = year, y = q025_struct_effect), col = "red") + 
+  geom_line(aes(x = year, y = q975_struct_effect), col = "blue") +
+  geom_ribbon(aes(x = year, ymin = q025_struct_effect, ymax = q975_struct_effect),
+              fill = "grey70") + 
+  geom_line(aes(x = year, y = median_struct_effect)) + 
+  xlim(1, 21)
 
+
+######
+#Plot the spatial effects
+spatial_structured_effect_median <- typeI_fit$summary.random$county$'0.5quant'[1:n]
+spatial_structured_effect_q025 <- typeI_fit$summary.random$county$'0.025quant'[1:n]
+spatial_structured_effect_q975 <- typeI_fit$summary.random$county$'0.975quant'[1:n]
+spatial_structured_effect_sd   <- typeI_fit$summary.random$county$sd[1:n]
+
+temp_ohio_map <- ohio_map[ ,c("geometry", "NAME")]
+temp_ohio_map$median <- spatial_structured_effect_median
+temp_ohio_map$q025 <- spatial_structured_effect_q025
+temp_ohio_map$q975 <- spatial_structured_effect_q975
+temp_ohio_map$sd   <- spatial_structured_effect_sd
+
+scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
+scale = scale_col[c(3,10,13,18,21,24,27,30)] #Select color scale to be more red
+
+ggplot(data = temp_ohio_map) + 
+  geom_sf(aes(fill = median), 
+          alpha = 1,
+          color="black") + ggtitle("Median Spatial Structured Effect each County") +
+  theme(plot.title = element_text(size = 15),
+        axis.title.x = element_blank(), #Remove axis and background grid
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+        legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+        panel.spacing = unit(1, 'lines')) +
+  guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+  binned_scale( #Scaling the color
+    aesthetics = "fill",
+    scale_name = "gradientn",
+    palette = function(x) c(scale),
+    labels = function(x){x},
+    guide = "colorscale")
+
+ggplot(data = temp_ohio_map) + 
+  geom_sf(aes(fill = sd), 
+          alpha = 1,
+          color="black") + ggtitle("Standard Deviation of Spatial structured\n effect for each county") +
+  theme(plot.title = element_text(size = 20),
+        axis.title.x = element_blank(), #Remove axis and background grid
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+        legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+        panel.spacing = unit(1, 'lines')) +
+  guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+  binned_scale( #Scaling the color
+    aesthetics = "fill",
+    scale_name = "gradientn",
+    palette = function(x) c(scale),
+    labels = function(x){x},
+    guide = "colorscale")
+
+#######
+#Plot the fitted values
+
+#####
+###Heatmap of fitted values
+
+##Just the fitted values
+#Extract fitted values
+fitted_values <- data.frame(typeI_fit$summary.fitted.values$mean)
+
+#fitted values which is ???
+colnames(fitted_values) <- "rate"
+fitted_values$year <- ohio_df$year
+fitted_values$county <- ohio_df$county
+fitted_values$county_name <- ohio_df$county_name
+fitted_values$to_sort_on <- ohio_df$space_time_unstructured
+
+#Merge with geometry, this messes up order
+fitted_values <- merge(ohio_map, fitted_values,
+                       by.x = c("NAME"), by.y = c("county_name"),
+                       all = T, suffixes = T)
+#Sort on what is space_time_unstructured in ohio_df to get right order
+fitted_values <- fitted_values[order(fitted_values$to_sort_on), ]
+
+#Fix indices
+rownames(fitted_values) <- 1:nrow(fitted_values)    # Assign sequence to row names
+
+#Create heatmaps of the fitted values
+p_1 <- case_count_plot_1_year(fitted_values, 1)
+p_2 <- case_count_plot_1_year(fitted_values, 2)
+p_3 <- case_count_plot_1_year(fitted_values, 3)
+p_4 <- case_count_plot_1_year(fitted_values, 4)
+p_5 <- case_count_plot_1_year(fitted_values, 5)
+p_6 <- case_count_plot_1_year(fitted_values, 6)
+p_7 <- case_count_plot_1_year(fitted_values, 7)
+p_8 <- case_count_plot_1_year(fitted_values, 8)
+p_9 <- case_count_plot_1_year(fitted_values, 9)
+p_10 <- case_count_plot_1_year(fitted_values, 10)
+p_11 <- case_count_plot_1_year(fitted_values, 11)
+p_12 <- case_count_plot_1_year(fitted_values, 12)
+p_13 <- case_count_plot_1_year(fitted_values, 13)
+p_14 <- case_count_plot_1_year(fitted_values, 14)
+p_15 <- case_count_plot_1_year(fitted_values, 15)
+p_16 <- case_count_plot_1_year(fitted_values, 16)
+p_17 <- case_count_plot_1_year(fitted_values, 17)
+p_18 <- case_count_plot_1_year(fitted_values, 18)
+p_19 <- case_count_plot_1_year(fitted_values, 19)
+p_20 <- case_count_plot_1_year(fitted_values, 20)
+p_21 <- case_count_plot_1_year(fitted_values, 21)
+
+
+ggarrange(p_1, p_2, p_3, p_4, 
+          p_5, p_6, p_7, p_8,
+          p_9, p_10, p_11, p_12, 
+          p_13, p_14, p_15, p_16,
+          p_17, p_18, p_19, p_20,
+          p_21,
+          ncol = 5, nrow = 5, 
+          common.legend = TRUE, legend = "right")
+
+#From the plot it seems like maybe the fitted values go in a 'circular' fashion
+#Rates at time 1 seem similar to that at time 21
+#May be due to non hardcoded bins...
+
+
+#The difference between the fitted values and actual values
+#Make a copy to get same structure
+fitted_values_copy = fitted_values
+fitted_values_copy$rate = fitted_values_copy$rate - ohio_df$rate #abs()
+
+min_diff_rate = min(fitted_values_copy$rate)
+max_diff_rate = max(fitted_values_copy$rate)
+hardcoded_bins_diff = round(seq(min_diff_rate, max_diff_rate, length.out = 8), 4)
+
+p_1 <- case_count_plot_1_year(fitted_values_copy, 1, hardcoded_bins = hardcoded_bins_diff)
+p_2 <- case_count_plot_1_year(fitted_values_copy, 2, hardcoded_bins = hardcoded_bins_diff)
+p_3 <- case_count_plot_1_year(fitted_values_copy, 3, hardcoded_bins = hardcoded_bins_diff)
+p_4 <- case_count_plot_1_year(fitted_values_copy, 4, hardcoded_bins = hardcoded_bins_diff)
+p_5 <- case_count_plot_1_year(fitted_values_copy, 5, hardcoded_bins = hardcoded_bins_diff)
+p_6 <- case_count_plot_1_year(fitted_values_copy, 6, hardcoded_bins = hardcoded_bins_diff)
+p_7 <- case_count_plot_1_year(fitted_values_copy, 7, hardcoded_bins = hardcoded_bins_diff)
+p_8 <- case_count_plot_1_year(fitted_values_copy, 8, hardcoded_bins = hardcoded_bins_diff)
+p_9 <- case_count_plot_1_year(fitted_values_copy, 9, hardcoded_bins = hardcoded_bins_diff)
+p_10 <- case_count_plot_1_year(fitted_values_copy, 10, hardcoded_bins = hardcoded_bins_diff)
+p_11 <- case_count_plot_1_year(fitted_values_copy, 11, hardcoded_bins = hardcoded_bins_diff)
+p_12 <- case_count_plot_1_year(fitted_values_copy, 12, hardcoded_bins = hardcoded_bins_diff)
+p_13 <- case_count_plot_1_year(fitted_values_copy, 13, hardcoded_bins = hardcoded_bins_diff)
+p_14 <- case_count_plot_1_year(fitted_values_copy, 14, hardcoded_bins = hardcoded_bins_diff)
+p_15 <- case_count_plot_1_year(fitted_values_copy, 15, hardcoded_bins = hardcoded_bins_diff)
+p_16 <- case_count_plot_1_year(fitted_values_copy, 16, hardcoded_bins = hardcoded_bins_diff)
+p_17 <- case_count_plot_1_year(fitted_values_copy, 17, hardcoded_bins = hardcoded_bins_diff)
+p_18 <- case_count_plot_1_year(fitted_values_copy, 18, hardcoded_bins = hardcoded_bins_diff)
+p_19 <- case_count_plot_1_year(fitted_values_copy, 19, hardcoded_bins = hardcoded_bins_diff)
+p_20 <- case_count_plot_1_year(fitted_values_copy, 20, hardcoded_bins = hardcoded_bins_diff)
+p_21 <- case_count_plot_1_year(fitted_values_copy, 21, hardcoded_bins = hardcoded_bins_diff)
+
+
+ggarrange(p_1, p_2, p_3, p_4, 
+          p_5, p_6, p_7, p_8,
+          p_9, p_10, p_11, p_12, 
+          p_13, p_14, p_15, p_16,
+          p_17, p_18, p_19, p_20,
+          p_21,
+          ncol = 5, nrow = 5, 
+          common.legend = TRUE, legend = "right")
+#Output shows that for the most part, most fitted values for the rate is
+#Quite close to the actual value
+
+
+#Relative deviation
+fitted_values_copy$rate = ifelse(ohio_df$rate == 0, 
+                                 (fitted_values$rate)/0.0001,
+                                 abs((fitted_values$rate - ohio_df$rate)/ohio_df$rate))
+
+
+
+min_diff_rate = min(fitted_values_copy$rate)
+max_diff_rate = max(fitted_values_copy$rate)
+#hardcoded_bins_diff = round(seq(min_diff_rate, max_diff_rate, length.out = 8), 4)
+hardcoded_bins_diff = seq(0, 2, length.out = 8)
+
+p_1 <- case_count_plot_1_year(fitted_values_copy, 1, hardcoded_bins = hardcoded_bins_diff)
+p_2 <- case_count_plot_1_year(fitted_values_copy, 2, hardcoded_bins = hardcoded_bins_diff)
+p_3 <- case_count_plot_1_year(fitted_values_copy, 3, hardcoded_bins = hardcoded_bins_diff)
+p_4 <- case_count_plot_1_year(fitted_values_copy, 4, hardcoded_bins = hardcoded_bins_diff)
+p_5 <- case_count_plot_1_year(fitted_values_copy, 5, hardcoded_bins = hardcoded_bins_diff)
+p_6 <- case_count_plot_1_year(fitted_values_copy, 6, hardcoded_bins = hardcoded_bins_diff)
+p_7 <- case_count_plot_1_year(fitted_values_copy, 7, hardcoded_bins = hardcoded_bins_diff)
+p_8 <- case_count_plot_1_year(fitted_values_copy, 8, hardcoded_bins = hardcoded_bins_diff)
+p_9 <- case_count_plot_1_year(fitted_values_copy, 9, hardcoded_bins = hardcoded_bins_diff)
+p_10 <- case_count_plot_1_year(fitted_values_copy, 10, hardcoded_bins = hardcoded_bins_diff)
+p_11 <- case_count_plot_1_year(fitted_values_copy, 11, hardcoded_bins = hardcoded_bins_diff)
+p_12 <- case_count_plot_1_year(fitted_values_copy, 12, hardcoded_bins = hardcoded_bins_diff)
+p_13 <- case_count_plot_1_year(fitted_values_copy, 13, hardcoded_bins = hardcoded_bins_diff)
+p_14 <- case_count_plot_1_year(fitted_values_copy, 14, hardcoded_bins = hardcoded_bins_diff)
+p_15 <- case_count_plot_1_year(fitted_values_copy, 15, hardcoded_bins = hardcoded_bins_diff)
+p_16 <- case_count_plot_1_year(fitted_values_copy, 16, hardcoded_bins = hardcoded_bins_diff)
+p_17 <- case_count_plot_1_year(fitted_values_copy, 17, hardcoded_bins = hardcoded_bins_diff)
+p_18 <- case_count_plot_1_year(fitted_values_copy, 18, hardcoded_bins = hardcoded_bins_diff)
+p_19 <- case_count_plot_1_year(fitted_values_copy, 19, hardcoded_bins = hardcoded_bins_diff)
+p_20 <- case_count_plot_1_year(fitted_values_copy, 20, hardcoded_bins = hardcoded_bins_diff)
+p_21 <- case_count_plot_1_year(fitted_values_copy, 21, hardcoded_bins = hardcoded_bins_diff)
+
+
+ggarrange(p_1, p_2, p_3, p_4, 
+          p_5, p_6, p_7, p_8,
+          p_9, p_10, p_11, p_12, 
+          p_13, p_14, p_15, p_16,
+          p_17, p_18, p_19, p_20,
+          p_21,
+          ncol = 5, nrow = 5, 
+          common.legend = TRUE, legend = "right")
 
 
 
