@@ -53,9 +53,7 @@ n <- length(unique(ohio_df$county))   # Number of areas
 T <- length(unique(ohio_df$year))     # Number of time points
 
 #Used for heat map plotting
-bins_hardcoded = c(0, 0.15, 0.3, 0.5, 0.65, 0.8, 1, 1.25)
-
-head(ohio_df)
+#bins_hardcoded = c(0, 0.15, 0.3, 0.5, 0.65, 0.8, 1, 1.25)
 ```
 
 
@@ -72,10 +70,8 @@ to_plot_potentially <- merge(ohio_map, ohio_df,
 ### Heatmaps
 ```{r}
 #From the heatmaps it seems that the rate is increasing over time 
-plot_all_years(to_plot_potentially, bins_hardcoded,
-               ncol = 7, nrow = 6,
+plot_all_years(to_plot_potentially, ncol = 7, nrow = 6,
                widths = c(2, 0.05, 2, 0.05, 2, 0.05, 2))
-
 ```
 
 ### Depth measures for the time series of each county
@@ -99,7 +95,6 @@ median_curve = median_fData(fdata, type = "MBD")
 #Weak evidence of trend, maybe RW2 performs better
 plot(fdata)
 lines(grid, median_curve$values, lwd = 3)
-lines(grid, 0.3 + 1.4 * 10**(-2) * grid, lwd = 2, col = "red")
 
 #indicates a trend, there is also some weird shapes
 ```
@@ -108,8 +103,6 @@ lines(grid, 0.3 + 1.4 * 10**(-2) * grid, lwd = 2, col = "red")
 
 ## Hyperparameters and corresponding priors
 ```{r}
-#Use pc prior
-
 #Temporal
 temporal_hyper = list(prec.unstruct = list(prior = 'pc.prec', 
                                            param = c(1, 0.01)), #Magic numbers
@@ -171,15 +164,30 @@ print(c("CPU: ", toString(summary(basic_model_fit)$cpu.used)))
 print(c("Time to compute", toString(time)))
 ```
 
-### Heat map for each year of the base linear predictor
+### Inference on basic model
+
+#### Check the random effects +++
+
+```{r}
+#plot(basic_model_fit)
+p <- plot(basic_model_fit$summary.random$year$ID[1:T], 
+     basic_model_fit$summary.random$year$mean[1:T], 
+     type = "l", lty = 1, xlab = "Year: t", ylab = "random effect alpha_t") + 
+  lines(basic_model_fit$summary.random$year$ID[1:T],
+        basic_model_fit$summary.random$year$'0.025quant'[1:T],
+        type = "l", lty = 2, col = "red") + 
+  lines(basic_model_fit$summary.random$year$ID[1:T],
+        basic_model_fit$summary.random$year$'0.975quant'[1:T],
+        type = "l", lty = 2, col = "green")
+
+p
+```
 
 
+#### Heatmap of fitted values
 ```{r}
 #Extract predictions
 #Make dataframe with years and county marked
-
-# What am I actually fitting, what do I get out???
-# How does Poisson regression actually work
 
 fitted_values <- data.frame(basic_model_fit$summary.fitted.values$mean)
 
@@ -197,8 +205,7 @@ fitted_values <- merge(ohio_map, fitted_values,
                    all = T, suffixes = T)
 
 
-plot_all_years(fitted_values, bins_hardcoded,
-               ncol = 7, nrow = 6,
+plot_all_years(fitted_values, ncol = 7, nrow = 6,
                widths = c(2, 0.05, 2, 0.05, 2, 0.05, 2))
 ```
 

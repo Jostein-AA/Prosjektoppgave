@@ -100,7 +100,7 @@ print(c("And that value is (should be 0): ", toString(basic_model_fit$cpo$failur
 print(c("CPU: ", toString(summary(basic_model_fit)$cpu.used)))
 print(c("Time to compute", toString(time)))
 
-plot(basic_model_fit)
+
 
 #Plot just the temporal effects
 plot(basic_model_fit$summary.random$year$ID[1:T], 
