@@ -754,6 +754,12 @@ ggarrange(p_1, p_2, p_3, p_4,
           p_21,
           ncol = 5, nrow = 5, 
           common.legend = TRUE, legend = "right")
+#Looks pretty good actually, some regions at early times that are quite far off, 
+#But other than that we decently good
+
+################################################################################
+#Type II
+
 
 
 
