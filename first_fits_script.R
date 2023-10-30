@@ -1,3 +1,6 @@
+#Markov uses older version of Ubuntu, may have to do
+#INLA:::inla.dynload.workaround()
+
 #Load libraries
 library(INLA)
 library(tidyverse)
@@ -12,7 +15,6 @@ library(fastmatrix)
 library(rwc)
 library(gridExtra)
 library(ggpubr)
-library(roahd)
 ###
 
 #Load data
@@ -100,78 +102,6 @@ print(c("And that value is (should be 0): ", toString(basic_model_fit$cpo$failur
 print(c("CPU: ", toString(summary(basic_model_fit)$cpu.used)))
 print(c("Time to compute", toString(time)))
 
-
-
-#Plot just the temporal effects
-plot(basic_model_fit$summary.random$year$ID[1:T], 
-     basic_model_fit$summary.random$year$mean[1:T], 
-     type = "l", lty = 1, xlab = "Year: t", ylab = "random effect alpha_t") + 
-  lines(basic_model_fit$summary.random$year$ID[1:T],
-        basic_model_fit$summary.random$year$'0.025quant'[1:T],
-        type = "l", lty = 2, col = "red") + 
-  lines(basic_model_fit$summary.random$year$ID[1:T],
-        basic_model_fit$summary.random$year$'0.975quant'[1:T],
-        type = "l", lty = 2, col = "green") 
-
-#Plot the spatial effects
-spatial_structured_effect_mean <- basic_model_fit$summary.random$county$mean[1:n]
-spatial_structured_effect_q025 <- basic_model_fit$summary.random$county$'0.025quant'[1:n]
-spatial_structured_effect_q975 <- basic_model_fit$summary.random$county$'0.975quant'[1:n]
-spatial_structured_effect_sd   <- basic_model_fit$summary.random$county$sd[1:n]
-
-temp_ohio_map <- ohio_map
-temp_ohio_map$mean <- spatial_structured_effect_mean
-temp_ohio_map$q025 <- spatial_structured_effect_q025
-temp_ohio_map$q975 <- spatial_structured_effect_q975
-temp_ohio_map$sd   <- spatial_structured_effect_sd
-
-scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
-scale = scale_col[c(3,10,13,18,21,24,27,30)] #Select color scale to be more red
-
-ggplot(data = temp_ohio_map) + 
-  geom_sf(aes(fill = mean), 
-          alpha = 1,
-          color="black") + ggtitle("spatial structured effect mean each county") +
-  theme(plot.title = element_text(size = 15),
-        axis.title.x = element_blank(), #Remove axis and background grid
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        panel.background = element_blank(),
-        plot.margin =  unit(c(0, 0, 0, 0), "inches"),
-        legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-        panel.spacing = unit(1, 'lines')) +
-  guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
-  binned_scale( #Scaling the color
-    aesthetics = "fill",
-    scale_name = "gradientn",
-    palette = function(x) c(scale),
-    labels = function(x){x},
-    guide = "colorscale")
-
-ggplot(data = temp_ohio_map) + 
-  geom_sf(aes(fill = sd), 
-          alpha = 1,
-          color="black") + ggtitle("spatial structured effect standard devation each county") +
-  theme(plot.title = element_text(size = 20),
-        axis.title.x = element_blank(), #Remove axis and background grid
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        panel.background = element_blank(),
-        plot.margin =  unit(c(0, 0, 0, 0), "inches"),
-        legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-        panel.spacing = unit(1, 'lines')) +
-  guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
-  binned_scale( #Scaling the color
-    aesthetics = "fill",
-    scale_name = "gradientn",
-    palette = function(x) c(scale),
-    labels = function(x){x},
-    guide = "colorscale")
-
-#Look at the fitted values compared to the actual values
-print(basic_model_fit$summary.fitted.values)
 
 
 ###

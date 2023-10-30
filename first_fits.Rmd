@@ -188,7 +188,6 @@ p
 ```{r}
 #Extract predictions
 #Make dataframe with years and county marked
-
 fitted_values <- data.frame(basic_model_fit$summary.fitted.values$mean)
 
 #This is not actually rate here tho. It is fitted values which is ???
