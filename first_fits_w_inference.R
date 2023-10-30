@@ -1443,10 +1443,130 @@ ggarrange(p_1, p_2, p_3, p_4,
 
 ################################################################################
 #Type IV
-
+#Start by only using 4 time points
 ###################################################
-#Make constraints
 
+T_test = 10
+
+#Extract T_test number of years
+#ohio_df_only_T_test_years <- ohio_df[which(ohio_df$year %in% 1:T_test), ]
+ohio_df_only_T_test_years = ohio_df
+
+
+#Make rw1 matrix
+struct_RW1_T_test_years <- INLA:::inla.rw(n = T, order = 1, scale.model = FALSE, 
+                                        sparse = TRUE)
+
+
+
+#Make constraints
+# Specifying constraints needed for Type IV Interaction
+time_constr <- matrix(0, n, n * T)
+for (i in 1:n) {
+  time_constr[i, which((0:(n * T - 1))%%n == i - 1)] <- 1
+}
+space_constr <- matrix(0, T-1, n * T)
+# theoretically it's enough to only go through N-1 here
+# note that we could have instead done 1:(T-1) in the first loop and 1:n in the second
+for (i in 1:(T-1)) { 
+  space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
+}
+
+
+tmp <- rbind(time_constr, space_constr) 
+constr.st <- list(A = tmp, e = rep(0, dim(tmp)[1]))
+
+# Kronecker product between ICAR x RW1
+R <- struct_RW1_T_test_years %x% ICAR_structure
+
+typeIV_hyperparameters_priors = list(theta=list(prior="pc.prec",
+                                                 param=c(1,0.01)))
+
+formula_typeIV_T_test_years <- deaths ~ 1 + f(year, 
+                                            model = 'bym',
+                                            scale.model = T, 
+                                            constr = T, 
+                                            rankdef = 1,
+                                            graph = struct_RW1_T_test_years,
+                                            hyper = temporal_hyper) + 
+                                          f(county, 
+                                            model = 'bym',
+                                            scale.model = T,
+                                            constr = T,
+                                            rankdef = 1,
+                                            graph = ICAR_structure,
+                                            hyper = spatial_hyper) + 
+                                          f(space_time_unstructured, 
+                                            model = "generic0",
+                                            Cmatrix = R,
+                                            extraconstr = constr.st,
+                                            rankdef = n + T - 1, 
+                                            hyper = typeIV_hyperparameters_priors)
+  
+
+
+
+
+
+
+#  Time difference of ~ 20 minutes on my personal machine
+
+ptm <- Sys.time()
+modIV <- inla(formula_typeIV_T_test_years,
+              data = ohio_df_only_T_test_years,
+              family = "poisson",
+              E = pop_at_risk,
+              control.compute = list(config = TRUE,
+                                     cpo = TRUE,
+                                     waic = TRUE))
+
+time = Sys.time() - ptm
+print(time)
+
+################################################################################
+#Type IV
+#all
+###################################################
+
+# Specifying constraints needed for Type IV Interaction
+time_constr <- matrix(0, n, n * T)
+for (i in 1:n) {
+  time_constr[i, which((0:(n * T - 1))%%n == i - 1)] <- 1
+}
+space_constr <- matrix(0, T-1, n * T)
+# theoretically it's enough to only go through N-1 here
+# note that we could have instead done 1:(T-1) in the first loop and 1:n in the second
+for (i in 1:(T-1)) { 
+  space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
+}
+
+
+tmp <- rbind(time_constr, space_constr) 
+constr.st <- list(A = tmp, e = rep(0, dim(tmp)[1]))
+
+# Kronecker product between ICAR x RW1
+R <- struct_RW1 %x% ICAR_structure
+
+formulaIV <- update(basic_linear_formula,
+                    ~. + f(space_time_unstructured, 
+                           model = "generic0",
+                           Cmatrix = R,
+                           extraconstr = constr.st,
+                           rankdef = n + T - 1, 
+                           hyper = typeIV_hyperparameters_priors))
+
+#  Time difference of ~ 20 minutes on my personal machine
+
+ptm <- Sys.time()
+modIV <- inla(formulaIV,
+              data = ohio_df,
+              family = "poisson",
+              E = pop_at_risk,
+              control.compute = list(config = TRUE,
+                                     cpo = TRUE,
+                                     waic = TRUE))
+
+time = Sys.time() - ptm
 
 
 
