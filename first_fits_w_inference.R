@@ -1143,11 +1143,11 @@ R <- diag(T) %x% scaled_ICAR_prec
 ##################################################
 #Fit the model w. type III interaction
 
-
+#Define hyperparameters and corresponding priors for type III interaction
 typeIII_hyperparameters_priors = list(theta=list(prior="pc.prec",
                                                 param=c(1,0.01)))
 
-#Model w. type III interaction
+#Formula w. type III interaction
 typeIII_formula <- update(basic_linear_formula, 
                           ~. + f(space_time_unstructured, 
                                  model = "generic0", 
