@@ -245,14 +245,11 @@ sum_to_zero_test <- basic_model_fit$misc$configs$constr$A %*% sum_to_zero_test
 sum_to_zero_test <- ifelse(-1E-15 < sum_to_zero_test & sum_to_zero_test < 1E-15,
                            1, 0)
 
-if(sum(sum_to_zero_test) == 2){
+if(sum(sum_to_zero_test) == basic_model_fit$misc$configs$constr$nc){
   print("Sum-to-zero constraints on temporal and spatial effects holds")
 } else{
   print("sum-to-zero constraints does NOT hold on temporal and spatial effects")
 }
-
-
-
 
 
 #Save cpo summary in easy way
@@ -459,11 +456,7 @@ fitted_values_copy$rate = ifelse(ohio_df$rate == 0,
                                  abs((fitted_values$rate - ohio_df$rate)/ohio_df$rate))
   
 
-
-min_diff_rate = min(fitted_values_copy$rate)
-max_diff_rate = max(fitted_values_copy$rate)
-#hardcoded_bins_diff = round(seq(min_diff_rate, max_diff_rate, length.out = 8), 4)
-hardcoded_bins_diff = seq(0, 2, length.out = 8)
+hardcoded_bins_diff = seq(0, 1, length.out = 8)
 
 p_1 <- case_count_plot_1_year(fitted_values_copy, 1, hardcoded_bins = hardcoded_bins_diff)
 p_2 <- case_count_plot_1_year(fitted_values_copy, 2, hardcoded_bins = hardcoded_bins_diff)
@@ -498,16 +491,12 @@ ggarrange(p_1, p_2, p_3, p_4,
           common.legend = TRUE, legend = "right")
 
 
-#####
-##Timeseries of fitted values
-#Just the fitted values
-
-#The difference between the fitted values and actual values
 
 ################################################################################
 #Fit the model w. type I interaction
 
 ####################################
+
 # Type I Interaction hyperparameters and hyper prior
 typeI_hyperparameters_priors = list(theta=list(prior="pc.prec",
                                                param=c(1,0.01)))
@@ -540,6 +529,26 @@ print(c("CPO failiure, should have 1 unique value",
 print(c("And that value is (should be 0): ", toString(typeI_fit$cpo$failure[1])))
 print(c("CPU: ", toString(summary(typeI_fit)$cpu.used)))
 print(c("Time: ", time))
+
+#Check sum-to-zero constraints
+#typeI_fit$misc$configs$constr$A contains constraint matrix 2 x 2067 (2067 = 1+2*21+2*88+1848)
+#First row corresponds to temporal constraint, defined in same way as for basic model
+#Second row corresponds to spatial constraint, defined in same way as for basic model
+#typeI_fit$misc$configs$constr$A same as for basic model, but with 1848 extra columns
+#corresponding to the iid interactions. They are all zero, as they are not constrained.
+#typeI_fit$misc$configs$constr$e = 0 0
+
+sum_to_zero_test <- typeI_fit$misc$configs$config[[1]]$mean
+sum_to_zero_test <- typeI_fit$misc$configs$constr$A %*% sum_to_zero_test
+sum_to_zero_test <- ifelse(-1E-15 < sum_to_zero_test & sum_to_zero_test < 1E-15,
+                           1, 0)
+
+if(sum(sum_to_zero_test) == typeI_fit$misc$configs$constr$nc){
+  print("Sum-to-zero constraints on temporal and spatial effects holds")
+} else{
+  print("sum-to-zero constraints does NOT hold on temporal and spatial effects")
+}
+
 
 #Save type I cpo, notice that it is smaller than base (that is good)
 typeI_cpo_summary <- round(-sum(log(typeI_fit$cpo$cpo)), digits = 4)
@@ -663,28 +672,33 @@ fitted_values <- fitted_values[order(fitted_values$to_sort_on), ]
 #Fix indices
 rownames(fitted_values) <- 1:nrow(fitted_values)    # Assign sequence to row names
 
+#create bins
+hardcoded_bins_fitted <- seq(min(fitted_values$rate),
+                             max(fitted_values$rate),
+                             length.out = 8)
+
 #Create heatmaps of the fitted values
-p_1 <- case_count_plot_1_year(fitted_values, 1)
-p_2 <- case_count_plot_1_year(fitted_values, 2)
-p_3 <- case_count_plot_1_year(fitted_values, 3)
-p_4 <- case_count_plot_1_year(fitted_values, 4)
-p_5 <- case_count_plot_1_year(fitted_values, 5)
-p_6 <- case_count_plot_1_year(fitted_values, 6)
-p_7 <- case_count_plot_1_year(fitted_values, 7)
-p_8 <- case_count_plot_1_year(fitted_values, 8)
-p_9 <- case_count_plot_1_year(fitted_values, 9)
-p_10 <- case_count_plot_1_year(fitted_values, 10)
-p_11 <- case_count_plot_1_year(fitted_values, 11)
-p_12 <- case_count_plot_1_year(fitted_values, 12)
-p_13 <- case_count_plot_1_year(fitted_values, 13)
-p_14 <- case_count_plot_1_year(fitted_values, 14)
-p_15 <- case_count_plot_1_year(fitted_values, 15)
-p_16 <- case_count_plot_1_year(fitted_values, 16)
-p_17 <- case_count_plot_1_year(fitted_values, 17)
-p_18 <- case_count_plot_1_year(fitted_values, 18)
-p_19 <- case_count_plot_1_year(fitted_values, 19)
-p_20 <- case_count_plot_1_year(fitted_values, 20)
-p_21 <- case_count_plot_1_year(fitted_values, 21)
+p_1 <- case_count_plot_1_year(fitted_values, 1, hardcoded_bins = hardcoded_bins_fitted)
+p_2 <- case_count_plot_1_year(fitted_values, 2, hardcoded_bins = hardcoded_bins_fitted)
+p_3 <- case_count_plot_1_year(fitted_values, 3, hardcoded_bins = hardcoded_bins_fitted)
+p_4 <- case_count_plot_1_year(fitted_values, 4, hardcoded_bins = hardcoded_bins_fitted)
+p_5 <- case_count_plot_1_year(fitted_values, 5, hardcoded_bins = hardcoded_bins_fitted)
+p_6 <- case_count_plot_1_year(fitted_values, 6, hardcoded_bins = hardcoded_bins_fitted)
+p_7 <- case_count_plot_1_year(fitted_values, 7, hardcoded_bins = hardcoded_bins_fitted)
+p_8 <- case_count_plot_1_year(fitted_values, 8, hardcoded_bins = hardcoded_bins_fitted)
+p_9 <- case_count_plot_1_year(fitted_values, 9, hardcoded_bins = hardcoded_bins_fitted)
+p_10 <- case_count_plot_1_year(fitted_values, 10, hardcoded_bins = hardcoded_bins_fitted)
+p_11 <- case_count_plot_1_year(fitted_values, 11, hardcoded_bins = hardcoded_bins_fitted)
+p_12 <- case_count_plot_1_year(fitted_values, 12, hardcoded_bins = hardcoded_bins_fitted)
+p_13 <- case_count_plot_1_year(fitted_values, 13, hardcoded_bins = hardcoded_bins_fitted)
+p_14 <- case_count_plot_1_year(fitted_values, 14, hardcoded_bins = hardcoded_bins_fitted)
+p_15 <- case_count_plot_1_year(fitted_values, 15, hardcoded_bins = hardcoded_bins_fitted)
+p_16 <- case_count_plot_1_year(fitted_values, 16, hardcoded_bins = hardcoded_bins_fitted)
+p_17 <- case_count_plot_1_year(fitted_values, 17, hardcoded_bins = hardcoded_bins_fitted)
+p_18 <- case_count_plot_1_year(fitted_values, 18, hardcoded_bins = hardcoded_bins_fitted)
+p_19 <- case_count_plot_1_year(fitted_values, 19, hardcoded_bins = hardcoded_bins_fitted)
+p_20 <- case_count_plot_1_year(fitted_values, 20, hardcoded_bins = hardcoded_bins_fitted)
+p_21 <- case_count_plot_1_year(fitted_values, 21, hardcoded_bins = hardcoded_bins_fitted)
 
 
 ggarrange(p_1, p_2, p_3, p_4, 
@@ -696,9 +710,8 @@ ggarrange(p_1, p_2, p_3, p_4,
           ncol = 5, nrow = 5, 
           common.legend = TRUE, legend = "right")
 
-#From the plot it seems like maybe the fitted values go in a 'circular' fashion
-#Rates at time 1 seem similar to that at time 21
-#May be due to non hardcoded bins...
+#From the plot, it is clear that the rate is calculated as increasing quite a lot
+#with time.
 
 
 #The difference between the fitted values and actual values
@@ -752,10 +765,7 @@ fitted_values_copy$rate = ifelse(ohio_df$rate == 0,
 
 
 
-min_diff_rate = min(fitted_values_copy$rate)
-max_diff_rate = max(fitted_values_copy$rate)
-#hardcoded_bins_diff = round(seq(min_diff_rate, max_diff_rate, length.out = 8), 4)
-hardcoded_bins_diff = seq(0, 2, length.out = 8)
+hardcoded_bins_diff = seq(0, 1, length.out = 8)
 
 p_1 <- case_count_plot_1_year(fitted_values_copy, 1, hardcoded_bins = hardcoded_bins_diff)
 p_2 <- case_count_plot_1_year(fitted_values_copy, 2, hardcoded_bins = hardcoded_bins_diff)
@@ -804,12 +814,18 @@ ggarrange(p_1, p_2, p_3, p_4,
 #     is only dependent on (delta_(i,t+-1)). Therefore the sum-to-zero is over these 88 RWs
 #     additionaly, set A[n, which(1:(n * T)%%n == 0)] <- 1 
 # - Constraints: The RW1 in each area needs to sum to 0. Hence in constr.st e is a zero vector
+
+
+#As defined in Knorr_Held_constraints_in_INLA
+A <- matrix(0, nrow = n, ncol = n * T)
+for(i in 1:n){
+  #I fundamentally disagree with this definition, need proof of it working
+  A[i, which((1:(n * T))%%n == i - 1)] <- 1
+}
+
+#As I think it should be: But, does this line up w. how it gets used???
 A <- matrix(0, nrow = n, ncol = n * T)
 for (i in 1:(n - 1)) {
-  #I disagree with this constraint
-  #A[i, which((1:(n * T))%%n == i - 1)] <- 1
-  
-  #How do I actually check that this works?
   A[i, which((1:(n * T))%%n == i)] <- 1
 }
 A[n, which((1:(n * T))%%n == 0)] <- 1
@@ -864,16 +880,35 @@ print(c("Time: ", time))
 
 
 #Check sum-to-zero constraints on interactions
-interaction_mean <- typeII_fit$summary.random$space_time_unstructured$mean
+#typeII_fit$misc$configs$constr$A is a 90 x 2067 matrix
+#90 rows corresponds to the 90 sum-to-zero constraints, while 2067 columns
+#corresponds to the effects
+#typeII_fit$misc$configs$constr$A first row is same as in basic model
+#typeII_fit$misc$configs$constr$A second row is same as in basic model
+#typeII_fit$misc$configs$constr$A row 3:90 is the 88 sum-to-zero constraints 
+#over the interactions that force the RW1s for each county to sum-to-zero
 
-print(constr.st$A %*% interaction_mean)
+#Where is the intercept??? which column does it correspond to? Is it the last one
+#Seems like it
 
-check_sum_to_zero <- ifelse(constr.st$A %*% interaction_mean > 0 - 1E-10 & 
-                            constr.st$A %*% interaction_mean < 0 + 1E-10, 
-                            0,
-                            1)
+tatcical error: does not sum-to-zero
 
-print(c("Number of counties for which sum-to-zero did not hold: ", toString(sum(check_sum_to_zero))))
+sum_to_zero_test <- typeII_fit$misc$configs$config[[1]]$mean
+sum_to_zero_test <- typeII_fit$misc$configs$constr$A %*% sum_to_zero_test
+
+#See that they all sum to smal values, but not zero...
+print(sum_to_zero_test)
+print(typeII_fit$misc$configs$constr$e)
+
+sum_to_zero_test <- ifelse(-1E-15 < sum_to_zero_test & sum_to_zero_test < 1E-15,
+                           1, 0)
+
+if(sum(sum_to_zero_test) == typeII_fit$misc$configs$constr$nc){
+  print("Sum-to-zero constraints on temporal-/spatial-effects and interactions holds")
+} else{
+  print("sum-to-zero constraints does NOT hold on temporal-/spatial-effects and interactions")
+}
+
 
 
 #save type II cpo
@@ -1192,8 +1227,27 @@ print(c("And that value is (should be 0): ", toString(typeIII_fit$cpo$failure[1]
 print(c("CPU: ", toString(summary(typeIII_fit)$cpu.used)))
 print(c("Time: ", time))
 
+tactical error: does not sum-to-zero
 
-#Check sum-to-zero constraints on interactions
+#Check sum-to-zero constraints
+sum_to_zero_test <- typeIII_fit$misc$configs$config[[1]]$mean
+sum_to_zero_test <- typeIII_fit$misc$configs$constr$A %*% sum_to_zero_test
+
+#See that they all sum to smal values, but not zero...
+print(sum_to_zero_test)
+print(typeIII_fit$misc$configs$constr$e)
+
+sum_to_zero_test <- ifelse(-1E-15 < sum_to_zero_test & sum_to_zero_test < 1E-15,
+                           1, 0)
+
+if(sum(sum_to_zero_test) == typeIII_fit$misc$configs$constr$nc){
+  print("Sum-to-zero constraints on temporal-/spatial-effects and interactions holds")
+} else{
+  print("sum-to-zero constraints does NOT hold on temporal-/spatial-effects and interactions")
+}
+
+
+
 interaction_mean <- typeIII_fit$summary.random$space_time_unstructured$mean
 
 print(constr.st$A %*% interaction_mean)
