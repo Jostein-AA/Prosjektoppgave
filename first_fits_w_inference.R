@@ -27,6 +27,7 @@ if(getwd() != "C:/Users/joste/Documents/H2023/Code/Prosjektoppgave"){
 source("functions_plotting_etc.R")
 ################################################################################
 #Load in necessities
+
 #Load structure matrices
 struct_RW1 = readMM(file='struct_RW1.txt')
 struct_RW2 = readMM(file = 'struct_RW2.txt')
@@ -140,6 +141,7 @@ for(county in unique(ohio_df$county_name)[2:length(unique(ohio_df$county_name))]
   temp_ = ohio_df[ohio_df$county_name == county, ]
   temp_data = rbind(temp_data, temp_$rate)
 }
+
 fdata <- fData(grid, temp_data)
 
 #Calculate the median curve by way of modified band depth
@@ -196,8 +198,7 @@ basic_linear_formula <- deaths ~ 1 + f(year,
                                        constr = T,
                                        rankdef = 1,
                                        graph = ICAR_structure,
-                                       hyper = spatial_hyper
-                                       )
+                                       hyper = spatial_hyper)
 ################################################################################
 #Fit the basic model
 ######################################
@@ -227,18 +228,32 @@ print(c("Time to compute", toString(time)))
 #When constr = T for a model, then the effects ought to sum-to-zero right?
 #check it???
 
-#Check sum-to-zero for temporal structured effect
-print("Temporal structured effects sum: ")
-print(sum(basic_model_fit$summary.random$year$mode[1:T]))
-print(sum(basic_model_fit$summary.random$year$mode[(T+1):(2*T)]))
-print(sum(basic_model_fit$summary.random$year$mode))
+#basic_model_fit$misc$configs$constr$A constraint matrix for whole of latent field?
+#First row corresponds to temporal effect? First 42 columns corresponds to temporal effects
+#with first 21 columns corresponding to u+v and 22 until 42 with u (structured)
+#Hence A[1, 22:42] = 1, otherwise A[1, ] = 0
+#Second row corresponds to spatial effect? column 43 until 218 corresponds to spatial effect
+#column 43:131 u+v and 132:218 corresponds to u (structured).
+#column 219 corresponds to intercept??? Hence no constraint there?
+#basic_model_fit$misc$configs$constr$e = 0 0, representing the two sum-to-zero constraints.
+
+#Big question is: Does the sum-to-zero constraints actually do anything?
+#Seems so:
+
+sum_to_zero_test <- basic_model_fit$misc$configs$config[[1]]$mean
+sum_to_zero_test <- basic_model_fit$misc$configs$constr$A %*% sum_to_zero_test
+sum_to_zero_test <- ifelse(-1E-15 < sum_to_zero_test & sum_to_zero_test < 1E-15,
+                           1, 0)
+
+if(sum(sum_to_zero_test) == 2){
+  print("Sum-to-zero constraints on temporal and spatial effects holds")
+} else{
+  print("sum-to-zero constraints does NOT hold on temporal and spatial effects")
+}
 
 
-#Check sum-to-zero for spatial structured effect
-print("Spatial structured effects sum: ")
-print(sum(basic_model_fit$summary.random$county$mode[1:n]))
-print(sum(basic_model_fit$summary.random$county$mode[(n+1):(2*n)]))
-print(sum(basic_model_fit$summary.random$county$mode))
+
+
 
 #Save cpo summary in easy way
 base_cpo_summary <-  round(-sum(log(basic_model_fit$cpo$cpo)), digits = 4)
