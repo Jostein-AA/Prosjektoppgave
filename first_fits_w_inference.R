@@ -833,16 +833,16 @@ A[n, which((1:(n * T))%%n == 0)] <- 1
 
 constr.st <- list(A = A, e = rep(0, dim(A)[1]))
 
-scaled_RW_prec <- inla.scale.model(struct_RW1,
-                                   list(A = matrix(1, 1, dim(struct_RW1)[1]),
-                                                    e = 0))
-
 ##################################################
 #Fit the model w. type II interaction
 
 # Kronecker product between RW1 and IID space term
 # order matters here! In our data set, the time ordering take precedent over the space ordering
 # so we must have the RW on the left and space on the right
+
+scaled_RW_prec <- inla.scale.model(struct_RW1,
+                                   list(A = matrix(1, 1, dim(struct_RW1)[1]),
+                                        e = 0))
 R <- scaled_RW_prec %x% diag(n)
 
 typeII_hyperparameters_priors = list(theta=list(prior="pc.prec",
@@ -891,15 +891,26 @@ print(c("Time: ", time))
 #Where is the intercept??? which column does it correspond to? Is it the last one
 #Seems like it
 
+#test <- inla.posterior.sample(n = 1, typeII_fit)
+sum_to_zero_test <- inla.posterior.sample(n = 1,
+                                          typeII_fit)
+
+sum_to_zero_test <- sum_to_zero_test[[1]]$latent[(n*T + 1):length(sum_to_zero_test[[1]]$latent)]
+sum_to_zero_test <- typeII_fit$misc$configs$constr$A %*% sum_to_zero_test
+
+#Does also not sum-to-zero
+print(sum_to_zero_test)
+
 tatcical error: does not sum-to-zero
 
 sum_to_zero_test <- typeII_fit$misc$configs$config[[1]]$mean
 sum_to_zero_test <- typeII_fit$misc$configs$constr$A %*% sum_to_zero_test
 
-#See that they all sum to smal values, but not zero...
+#See that they all sum to small values, but not zero...
 print(sum_to_zero_test)
 print(typeII_fit$misc$configs$constr$e)
 
+#Check that it is basically zero (within machine precision)
 sum_to_zero_test <- ifelse(-1E-15 < sum_to_zero_test & sum_to_zero_test < 1E-15,
                            1, 0)
 
