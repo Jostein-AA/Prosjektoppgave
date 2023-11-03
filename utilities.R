@@ -1,3 +1,72 @@
+#Constraint maker function
+constraints_maker <- function(type = NULL, n = NULL, t = NULL){
+  #Type: specifies what interaction type and hence what type of constraint is desired
+  #n: specifies number of areas
+  #t: specifies number of time points
+  if(type == "II"){
+    #For a type II interaction, there is a RW(1) over each interaction (assuming RW1)
+    #Hence for each county, constrain the RW to sum-to-zero
+    A <- matrix(0, nrow = n, ncol = n * t)
+    for (i in 1:(n - 1)) {
+      A[i, which((1:(n * t))%%n == i)] <- 1
+    }
+    A[n, which((1:(n * t))%%n == 0)] <- 1
+    
+  } else if(type == "III"){
+    #For a type III interaction, there is a indep. ICAR at each time point
+    #Need the ICAR at each time point to sum-to-zero
+    A <- matrix(0, nrow = t, ncol = n * t)
+    for (i in 1:t) {
+      # The ICAR at each time point needs to sum to 0
+      A[i, ((i - 1) * n + 1):(i * n)] <- 1
+    }
+    
+  } else if(type == "IV"){
+    #For a type IV interaction, we have to do both sum-to-zero
+    #over each RW on each county, and for each time point sum-to-zero
+    #over each ICAR
+    time_constr <- matrix(0, nrow = n, ncol = n * t)
+    for (i in 1:(n - 1)) {
+      time_constr[i, which((1:(n * t))%%n == i)] <- 1
+    }
+    time_constr[n, which((1:(n * t))%%n == 0)] <- 1
+    
+    space_constr <- matrix(0, nrow = t-1, ncol = n * t)
+    for (i in 1:(t-1)) { 
+      space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
+    }
+    
+    A <- rbind(time_constr, space_constr)
+  }
+  
+  #Get constraints in INLA format
+  constr.st <- list(A = A, e = rep(0, dim(A)[1]))
+  return(constr.st)
+}
+
+
+
+
+every_county_time_series <- function(model_fitted){
+  #model_fitted: a model that is fitted, from which fitted values can be extracted
+  #Plots a time
+  par(mfrow=c(4,4))
+  for(i in 1:n){
+    plot(ohio_df$rate[seq(i,n*T,by=n)], 
+         ylab = "rate",
+         xlab = "year: ")
+    matplot(model_fitted$summary.fitted.values[seq(i,n*T,by=n),3:5],
+            col=1, lty=c(2,1,2), type="l", add=T)
+  }
+}
+
+
+
+#Heatmap plotting functions
+
+
+
+
 
 ### Plotting functions 
 

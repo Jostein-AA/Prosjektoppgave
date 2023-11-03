@@ -19,7 +19,7 @@ library(gridExtra)
 library(ggpubr)
 library(roahd)
 
-#Load other files
+#Set working directory if not correct (only locally)
 if(getwd() != "C:/Users/joste/Documents/H2023/Code/Prosjektoppgave"){
   setwd("H2023/Code/Prosjektoppgave/")
 }
@@ -816,14 +816,8 @@ ggarrange(p_1, p_2, p_3, p_4,
 # - Constraints: The RW1 in each area needs to sum to 0. Hence in constr.st e is a zero vector
 
 
-#As defined in Knorr_Held_constraints_in_INLA
-A <- matrix(0, nrow = n, ncol = n * T)
-for(i in 1:n){
-  #I fundamentally disagree with this definition, need proof of it working
-  A[i, which((1:(n * T))%%n == i - 1)] <- 1
-}
 
-#As I think it should be: But, does this line up w. how it gets used???
+
 A <- matrix(0, nrow = n, ncol = n * T)
 for (i in 1:(n - 1)) {
   A[i, which((1:(n * T))%%n == i)] <- 1
@@ -831,7 +825,34 @@ for (i in 1:(n - 1)) {
 A[n, which((1:(n * T))%%n == 0)] <- 1
 
 
+#Creating constraints based on eigenvectors and eigenvalues
+
+#This function scales an intrinsic GMRF model so the geometric mean of the marginal variances is one
+scaled_RW_prec <- inla.scale.model(struct_RW1,
+                                   list(A = matrix(1, 1, dim(struct_RW1)[1]),
+                                        e = 0))
+R <- scaled_RW_prec %x% diag(n)
+
+#R <- struct_RW1 %x% diag(n)
+
+eigens <- eigen(R)
+#eigenvalues_approx_zero <- which(eigens$values < 1E-6)
+#print(eigenvalues_approx_zero)
+#print(length(eigenvalues_approx_zero))
+
+#Should i extract the n eigenvectors corresponding to the n smallest eigenvalues?
+#each column in eigens$vectors corresponds to a eigenvector, index of eigenvector 
+#corresponds to which eigenvalue. Eigenvalues are in decreasing order...
+#Choose n last columns of eigens$vectors to make the constraint matrix
+
+#extract last 88 columns
+A <- t(eigens$vectors[ ,])
+
+##
+
 constr.st <- list(A = A, e = rep(0, dim(A)[1]))
+
+
 
 ##################################################
 #Fit the model w. type II interaction
@@ -840,10 +861,11 @@ constr.st <- list(A = A, e = rep(0, dim(A)[1]))
 # order matters here! In our data set, the time ordering take precedent over the space ordering
 # so we must have the RW on the left and space on the right
 
-scaled_RW_prec <- inla.scale.model(struct_RW1,
-                                   list(A = matrix(1, 1, dim(struct_RW1)[1]),
-                                        e = 0))
-R <- scaled_RW_prec %x% diag(n)
+#scaled_RW_prec <- inla.scale.model(struct_RW1,
+#                                   list(A = matrix(1, 1, dim(struct_RW1)[1]),
+#                                        e = 0))
+#R <- scaled_RW_prec %x% diag(n)
+#R <- struct_RW1 %x% diag(n)
 
 typeII_hyperparameters_priors = list(theta=list(prior="pc.prec",
                                                 param=c(1,0.01)))
@@ -887,21 +909,19 @@ print(c("Time: ", time))
 #typeII_fit$misc$configs$constr$A second row is same as in basic model
 #typeII_fit$misc$configs$constr$A row 3:90 is the 88 sum-to-zero constraints 
 #over the interactions that force the RW1s for each county to sum-to-zero
-
-#Where is the intercept??? which column does it correspond to? Is it the last one
-#Seems like it
+#Where is the intercept??? which column does it correspond to? Is it the last one, seems like it
 
 #test <- inla.posterior.sample(n = 1, typeII_fit)
 sum_to_zero_test <- inla.posterior.sample(n = 1,
                                           typeII_fit)
 
-sum_to_zero_test <- sum_to_zero_test[[1]]$latent[(n*T + 1):length(sum_to_zero_test[[1]]$latent)]
+sum_to_zero_test <- sum_to_zero_test[[1]]$latent[(n*T + 1):(length(sum_to_zero_test[[1]]$latent))]
+
 sum_to_zero_test <- typeII_fit$misc$configs$constr$A %*% sum_to_zero_test
 
 #Does also not sum-to-zero
 print(sum_to_zero_test)
 
-tatcical error: does not sum-to-zero
 
 sum_to_zero_test <- typeII_fit$misc$configs$config[[1]]$mean
 sum_to_zero_test <- typeII_fit$misc$configs$constr$A %*% sum_to_zero_test
@@ -1238,7 +1258,6 @@ print(c("And that value is (should be 0): ", toString(typeIII_fit$cpo$failure[1]
 print(c("CPU: ", toString(summary(typeIII_fit)$cpu.used)))
 print(c("Time: ", time))
 
-tactical error: does not sum-to-zero
 
 #Check sum-to-zero constraints
 sum_to_zero_test <- typeIII_fit$misc$configs$config[[1]]$mean
@@ -1529,26 +1548,26 @@ ggarrange(p_1, p_2, p_3, p_4,
 T_test = 10
 
 #Extract T_test number of years
-#ohio_df_only_T_test_years <- ohio_df[which(ohio_df$year %in% 1:T_test), ]
-ohio_df_only_T_test_years = ohio_df
+ohio_df_only_T_test_years <- ohio_df[which(ohio_df$year %in% 1:T_test), ]
+#ohio_df_only_T_test_years = ohio_df
 
 
 #Make rw1 matrix
-struct_RW1_T_test_years <- INLA:::inla.rw(n = T, order = 1, scale.model = FALSE, 
+struct_RW1_T_test_years <- INLA:::inla.rw(n = T_test, order = 1, scale.model = FALSE, 
                                         sparse = TRUE)
 
 
 
 #Make constraints
 # Specifying constraints needed for Type IV Interaction
-time_constr <- matrix(0, n, n * T)
+time_constr <- matrix(0, n, n * T_test)
 for (i in 1:n) {
-  time_constr[i, which((0:(n * T - 1))%%n == i - 1)] <- 1
+  time_constr[i, which((0:(n * T_test - 1))%%n == i - 1)] <- 1
 }
-space_constr <- matrix(0, T-1, n * T)
+space_constr <- matrix(0, T_test-1, n * T_test)
 # theoretically it's enough to only go through N-1 here
 # note that we could have instead done 1:(T-1) in the first loop and 1:n in the second
-for (i in 1:(T-1)) { 
+for (i in 1:(T_test-1)) { 
   space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
 }
 
@@ -1580,7 +1599,7 @@ formula_typeIV_T_test_years <- deaths ~ 1 + f(year,
                                             model = "generic0",
                                             Cmatrix = R,
                                             extraconstr = constr.st,
-                                            rankdef = n + T - 1, 
+                                            rankdef = n + T_test - 1, 
                                             hyper = typeIV_hyperparameters_priors)
   
 
@@ -1625,7 +1644,9 @@ tmp <- rbind(time_constr, space_constr)
 constr.st <- list(A = tmp, e = rep(0, dim(tmp)[1]))
 
 # Kronecker product between ICAR x RW1
-R <- struct_RW1 %x% ICAR_structure
+#R <- struct_RW1 %x% ICAR_structure
+
+#Use scaled.
 
 formulaIV <- update(basic_linear_formula,
                     ~. + f(space_time_unstructured, 
