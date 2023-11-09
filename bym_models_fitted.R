@@ -133,12 +133,29 @@ typeI_fit <- inla(typeI_formula, data = ohio_df, family = 'poisson',
 time_typeI = Sys.time() - ptm
 
 #Inference on model w. type I interaction
+print_cpo_etc(typeI_fit, time_typeI)
 
-print(c("- sum(log(CPO)):", toString(round(-sum(log(typeI_fit$cpo$cpo)), digits = 4))))
-print(c("WAIC: ", toString(round(typeI_fit$waic$waic, digits = 4))))
-print(c('comp. time: ', time_typeI))
-
+#See a lot of things (intercept, precisions, effects, etc)
 plot(typeI_fit)
+
+#Plot the intercept: Looks exactly like the one plotted for basic_model_fit (good)
+plot_intercept(typeI_fit)
+
+#Plot posterior distributions of precision of random effects: Similar to basic_model_fit
+plot_precisions_random_effects(typeI_fit)
+
+#See Structured temporal effect
+plot_temporal_effect(typeI_fit)
+
+#See structured spatial effect plotted as heatmap
+plot_spatial_effect(ohio_map, typeI_fit)
+
+#See fitted values for each county w. median, and 0.025%- and 0.975% quantiles
+#along with actual values of rate as points
+every_county_time_series(typeI_fit)
+
+#Plot the fitted values against the actual observed values
+plot_fitted_vs_actual_together(ohio_df, typeI_fit)
 
 
 ###
