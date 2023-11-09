@@ -94,23 +94,29 @@ basic_model_fit <- inla(base_formula, data = ohio_df, family = "poisson",
 time_base = Sys.time()-ptm
 
 #Inference on the basic model
+print_cpo_etc(basic_model_fit, time_base)
 
-print(c("- sum(log(CPO)):", toString(round(-sum(log(basic_model_fit$cpo$cpo)), digits = 4))))
-
-#See a lot of things
+#See a lot of things (intercept, precisions, effects, etc)
 plot(basic_model_fit)
 
-#See temporal effect
-matplot(basic_model_fit$summary.random$year[22:42, 4:6],
-        lty=c(2,1,2), type="l", col=1)
+#Plot the intercept
+plot_intercept(basic_model_fit)
 
+#Plot posterior distributions of precision of random effects
+plot_precisions_random_effects(basic_model_fit)
+
+#See Structured temporal effect
+plot_temporal_effect(basic_model_fit)
+
+#See structured spatial effect plotted as heatmap
+plot_spatial_effect(ohio_map, basic_model_fit)
 
 #See fitted values for each county w. median, and 0.025%- and 0.975% quantiles
 #along with actual values of rate as points
 every_county_time_series(basic_model_fit)
 
-
-
+#Plot the fitted values against the actual observed values
+plot_fitted_vs_actual_together(ohio_df, basic_model_fit)
 
 ###
 
@@ -129,6 +135,8 @@ time_typeI = Sys.time() - ptm
 #Inference on model w. type I interaction
 
 print(c("- sum(log(CPO)):", toString(round(-sum(log(typeI_fit$cpo$cpo)), digits = 4))))
+print(c("WAIC: ", toString(round(typeI_fit$waic$waic, digits = 4))))
+print(c('comp. time: ', time_typeI))
 
 plot(typeI_fit)
 
@@ -166,6 +174,8 @@ time_typeII = Sys.time() - ptm
 #Inference on type II model
 
 print(c("- sum(log(CPO)):", toString(round(-sum(log(typeII_fit$cpo$cpo)), digits = 4))))
+print(c("WAIC: ", toString(round(typeII_fit$waic$waic, digits = 4))))
+print(c('comp. time: ', time_typeII))
 
 plot(typeII_fit)
 
@@ -202,6 +212,8 @@ time_typeIII = Sys.time() - ptm
 #Inference on type III model
 
 print(c("- sum(log(CPO)):", toString(round(-sum(log(typeIII_fit$cpo$cpo)), digits = 4))))
+print(c("WAIC: ", toString(round(typeIII_fit$waic$waic, digits = 4))))
+print(c('comp. time: ', time_typeIII))
 
 plot(typeIII_fit)
 

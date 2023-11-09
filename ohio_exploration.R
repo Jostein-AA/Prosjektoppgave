@@ -28,6 +28,9 @@ ohio_df <- read.csv("ohio_df.csv")
 ohio_map  <- read_sf('./fe_2007_39_county')[ ,c("geometry", "NAME")]
 ohio_map <- ohio_map[order(ohio_map$NAME), ]
 
+#Get number of counties (n) and number of years (T)
+n <- length(unique(ohio_df$county))   # Number of areas
+T <- length(unique(ohio_df$year))     # Number of time points
 
 #Start by finding median/mean/sd rate for each county
 ohio_map$median_rate <- rep(0, n)  #Initialize to zero

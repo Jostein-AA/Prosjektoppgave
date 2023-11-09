@@ -44,31 +44,148 @@ constraints_maker <- function(type = NULL, n = NULL, t = NULL){
   return(constr.st)
 }
 
+#Function printing some key numbers and stuff
+print_cpo_etc <- function(fitted_model, time_obj){
+  print(c("Number of constraints: ",toString(fitted_model$misc$configs$constr$nc)))
+  print(c("- sum(log(CPO)):", toString(round(-sum(log(fitted_model$cpo$cpo)), digits = 0))))
+  print(c("WAIC: ", toString(round(fitted_model$waic$waic, digits = 0))))
+  print(c("CPO failiure, should have 1 unique value",
+          toString(length(unique(fitted_model$cpo$failure))))) #-> soinla.cpo(res)
+  print(c("And that value is (should be 0): ", toString(fitted_model$cpo$failure[1])))
+  print(c("CPU: ", toString(summary(fitted_model)$cpu.used)))
+  print(c("Time to compute", toString(round(time_obj, 3))))
+}
 
 
+#Plot posterior intercept
+plot_intercept <- function(fitted_model){
+  #Function that plots the posterior distribution of the intercept
+  
+  plot(fitted_model$marginals.fixed$`(Intercept)`[, 1],
+       fitted_model$marginals.fixed$`(Intercept)`[, 2],
+       xlab = "", ylab = "", type = "l", lwd = 2.5, 
+       main = "Posterior density of Intercept")
+  
+}
 
-every_county_time_series <- function(model_fitted){
+#Plot posterior precision's
+plot_precisions_random_effects <- function(fitted_model){
+  par(mfrow = c(2, 2))
+  #Plot precision of iid temporal effect
+  plot(fitted_model$marginals.hyperpar$`Precision for year (iid component)`[, 1],
+       fitted_model$marginals.hyperpar$`Precision for year (iid component)`[, 2],
+       type = "l", xlab = "", ylab = "", main = "Precision of iid temporal effect")
+  #Plot precision of structured temporal effect
+  plot(fitted_model$marginals.hyperpar$`Precision for year (spatial component)`[, 1],
+       fitted_model$marginals.hyperpar$`Precision for year (spatial component)`[, 2],
+       type = "l", xlab = "", ylab = "", main = "Precision of structured temporal effect")
+  #Plot precision of iid spatial effect
+  plot(fitted_model$marginals.hyperpar$`Precision for county (iid component)`[, 1],
+       fitted_model$marginals.hyperpar$`Precision for county (iid component)`[, 2],
+       type = "l", xlab = "", ylab = "", main = "Precision of iid spatial effect")
+  #Plot precision of structured spatial effect
+  plot(fitted_model$marginals.hyperpar$`Precision for county (spatial component)`[, 1],
+       fitted_model$marginals.hyperpar$`Precision for county (spatial component)`[, 2],
+       type = "l", xlab = "", ylab = "", main = "Precision of structured spatial effect")
+}
+
+
+#Plot the temporal effect
+plot_temporal_effect <- function(fitted_model){
+  par(mfrow = c(1, 1))
+  matplot(fitted_model$summary.random$year[(T + 1):(2 * T), 4:6],
+          lty=c(2,1,2), type="l", col=1,
+          xlab = "year", ylab = "Temporal random effect")
+}
+
+#Plot the spatial effect as a heatmap
+plot_spatial_effect <- function(map, fitted_model){
+  scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
+  scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
+  
+  spatial_structured_effect_mean <- fitted_model$summary.random$county$mean[(n+1):(2*n)]
+  spatial_structured_effect_sd <- fitted_model$summary.random$county$sd[(n+1):(2*n)]
+  temp_ohio_map <- map[ ,c("geometry", "NAME")]
+  temp_ohio_map$mean <- spatial_structured_effect_mean
+  temp_ohio_map$sd <- spatial_structured_effect_sd
+  
+  p_1 <- ggplot(data = temp_ohio_map) + 
+    geom_sf(aes(fill = mean), 
+            alpha = 1,
+            color="black") + ggtitle("Mean Spatial Structured Effect each County") +
+    theme(plot.title = element_text(size = 12),
+          axis.title.x = element_blank(), #Remove axis and background grid
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          panel.spacing = unit(1, 'lines')) +
+    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+    binned_scale( #Scaling the color
+      aesthetics = "fill",
+      scale_name = "gradientn",
+      palette = function(x) c(scale_1),
+      labels = function(x){x},
+      guide = "colorscale")
+  
+  p_2 <- ggplot(data = temp_ohio_map) + 
+    geom_sf(aes(fill = sd), 
+            alpha = 1,
+            color="black") + ggtitle("Std deviation of spatial effect for each county") +
+    theme(plot.title = element_text(size = 12),
+          axis.title.x = element_blank(), #Remove axis and background grid
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          panel.spacing = unit(1, 'lines')) +
+    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+    binned_scale( #Scaling the color
+      aesthetics = "fill",
+      scale_name = "gradientn",
+      palette = function(x) c(scale_1),
+      labels = function(x){x},
+      guide = "colorscale")
+  
+  ggarrange(p_1, p_2,
+            ncol = 2, nrow = 1,
+            common.legend = FALSE)
+}
+
+#Plot fitted values against actual values (all together)
+plot_fitted_vs_actual_together <- function(actual_data, fitted_model){
+  par(mfrow = c(1, 1))
+  plot(actual_data$rate,
+       xlab = "Datum ID", ylab = "Fitted value") + 
+    lines(fitted_model$summary.fitted.values[4],
+          lty = 1, type = "l", 
+          col = 1)
+}
+
+#Plot a time series for every county showing fitted values vs actual values
+every_county_time_series <- function(fitted_model){
   #model_fitted: a model that is fitted, from which fitted values can be extracted
   #Plots a time
-  par(mfrow=c(4,4))
+  par(mfrow=c(3,3))
   for(i in 1:n){
     plot(ohio_df$rate[seq(i,n*T,by=n)], 
          ylab = "rate",
-         xlab = "year: ")
-    matplot(model_fitted$summary.fitted.values[seq(i,n*T,by=n),3:5],
+         xlab = "year",
+         main = ohio_df$county_name[i])
+    matplot(fitted_model$summary.fitted.values[seq(i,n*T,by=n),3:5],
             col=1, lty=c(2,1,2), type="l", add=T)
   }
 }
 
 
 
-#Heatmap plotting functions
 
 
 
-
-
-### Plotting functions 
 
 #Plot heatmap for 1 year
 case_count_plot_1_year <- function(sf_data, year, hardcoded_bins = NULL){
