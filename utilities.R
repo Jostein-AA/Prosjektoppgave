@@ -60,7 +60,7 @@ print_cpo_etc <- function(fitted_model, time_obj){
 #Plot posterior intercept
 plot_intercept <- function(fitted_model){
   #Function that plots the posterior distribution of the intercept
-  
+  par(mfrow = c(1, 1))
   plot(fitted_model$marginals.fixed$`(Intercept)`[, 1],
        fitted_model$marginals.fixed$`(Intercept)`[, 2],
        xlab = "", ylab = "", type = "l", lwd = 2.5, 
@@ -155,6 +155,17 @@ plot_spatial_effect <- function(map, fitted_model){
             ncol = 2, nrow = 1,
             common.legend = FALSE)
 }
+
+
+#Plot interactions
+plot_prec_interactions <- function(fitted_model, title){
+  par(mfrow = c(1, 1))
+  plot(fitted_model$marginals.hyperpar$`Precision for space_time_unstructured`[, 1],
+       fitted_model$marginals.hyperpar$`Precision for space_time_unstructured`[, 2],
+       type = "l", xlab = "", ylab = "", lwd = 2.5,
+       main = title)
+}
+
 
 #Plot fitted values against actual values (all together)
 plot_fitted_vs_actual_together <- function(actual_data, fitted_model){
