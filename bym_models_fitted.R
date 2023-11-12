@@ -164,10 +164,7 @@ plot_prec_interactions(typeI_fit,
                        "Posterior density of precision of type I interaction")
 
 #Interactions themselves
-#typeI_fit$marginals.random$space_time_unstructured
-matplot(typeI_fit$summary.random$space_time_unstructured[ , 4:6],
-        lty=c(2,1,2), type="l", col=1,
-        xlab = "Datum ID", ylab = "Interaction effect")
+plot_interaction(typeI_fit)
 
 
 ###
@@ -226,6 +223,12 @@ every_county_time_series(typeII_fit)
 plot_fitted_vs_actual_together(ohio_df, typeII_fit)
 
 
+#Precision of interactions
+plot_prec_interactions(typeII_fit, 
+                       "Posterior density of precision of type II interaction")
+
+#Interactions themselves
+plot_interaction(typeII_fit)
 
 
 ###
@@ -282,6 +285,14 @@ every_county_time_series(typeIII_fit)
 #Plot the fitted values against the actual observed values
 plot_fitted_vs_actual_together(ohio_df, typeIII_fit)
 
+
+#Precision of interactions
+plot_prec_interactions(typeIII_fit, 
+                       "Posterior density of precision of type III interaction")
+
+#Interactions themselves
+plot_interaction(typeIII_fit)
+
 ###
 
 #Type IV
@@ -310,7 +321,35 @@ time_typeIV = Sys.time() - ptm
 
 #Inference on type IV model
 
-print(c("- sum(log(CPO)):", toString(round(-sum(log(typeIV_fit$cpo$cpo)), digits = 4))))
+print_cpo_etc(typeIV_fit, time_typeIV)
 
+#See a lot of things (intercept, precisions, effects, etc)
 plot(typeIV_fit)
+
+#Plot the intercept: Looks exactly like the one plotted for basic_model_fit (good)
+plot_intercept(typeIV_fit)
+
+#Plot posterior distributions of precision of random effects: Similar to basic_model_fit
+plot_precisions_random_effects(typeIV_fit)
+
+#See Structured temporal effect: Similar to basic_model_fit
+plot_temporal_effect(typeIV_fit)
+
+#See structured spatial effect plotted as heatmap: Similar to basic_model_fit
+plot_spatial_effect(ohio_map, typeIV_fit)
+
+#See fitted values for each county w. median, and 0.025%- and 0.975% quantiles
+#along with actual values of rate as points
+every_county_time_series(typeIV_fit)
+
+#Plot the fitted values against the actual observed values
+plot_fitted_vs_actual_together(ohio_df, typeIV_fit)
+
+
+#Precision of interactions
+plot_prec_interactions(typeIV_fit, 
+                       "Posterior density of precision of type IV interaction")
+
+#Interactions themselves
+plot_interaction(typeIV_fit)
 

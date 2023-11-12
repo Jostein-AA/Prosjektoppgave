@@ -157,13 +157,21 @@ plot_spatial_effect <- function(map, fitted_model){
 }
 
 
-#Plot interactions
+
+#Plot precision of interaction
 plot_prec_interactions <- function(fitted_model, title){
   par(mfrow = c(1, 1))
   plot(fitted_model$marginals.hyperpar$`Precision for space_time_unstructured`[, 1],
        fitted_model$marginals.hyperpar$`Precision for space_time_unstructured`[, 2],
        type = "l", xlab = "", ylab = "", lwd = 2.5,
        main = title)
+}
+
+#Plot the interactions
+plot_interaction <- function(fitted_model){
+  matplot(fitted_model$summary.random$space_time_unstructured[ , 4:6],
+          lty=c(2,1,2), type="l", col=1,
+          xlab = "Datum ID", ylab = "Interaction effect")
 }
 
 
