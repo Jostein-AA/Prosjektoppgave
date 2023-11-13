@@ -1,4 +1,4 @@
-"year","county_name","county","deaths","pop_at_risk","rate","space.time"
+"year","name","county","deaths","pop_at_risk","rate","space.time"
 1968,"Adams",1,6,17952,0.000334224598930481,1
 1968,"Allen",2,32,111028,0.000288215585257773,2
 1968,"Ashland",3,15,43504,0.000344795880838544,3

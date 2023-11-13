@@ -49,7 +49,7 @@ ohio_df <- merge(deaths_aggregated, pop_at_risk_aggregated,
 ohio_df = ohio_df[order(ohio_df$Group.3, decreasing = F), ]
 
 #Rename to understandable column names.
-colnames(ohio_df) <- c("year", "county_name", "county", "deaths", "pop_at_risk")
+colnames(ohio_df) <- c("year", "name", "county", "deaths", "pop_at_risk")
 
 
 #Create copies of time for unstructured/structured random effects
