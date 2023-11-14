@@ -91,7 +91,7 @@ plot_precisions_random_effects <- function(fitted_model){
 
 
 #Plot the temporal effect
-plot_temporal_effect <- function(fitted_model){
+plot_temporal_effect <- function(fitted_model, T){
   par(mfrow = c(1, 1))
   matplot(fitted_model$summary.random$year[(T + 1):(2 * T), 4:6],
           lty=c(2,1,2), type="l", col=1,
@@ -99,7 +99,7 @@ plot_temporal_effect <- function(fitted_model){
 }
 
 #Plot the spatial effect as a heatmap
-plot_spatial_effect <- function(map, fitted_model){
+plot_spatial_effect <- function(map, fitted_model, n){
   scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
   scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
   
@@ -161,15 +161,15 @@ plot_spatial_effect <- function(map, fitted_model){
 #Plot precision of interaction
 plot_prec_interactions <- function(fitted_model, title){
   par(mfrow = c(1, 1))
-  plot(fitted_model$marginals.hyperpar$`Precision for space_time_unstructured`[, 1],
-       fitted_model$marginals.hyperpar$`Precision for space_time_unstructured`[, 2],
+  plot(fitted_model$marginals.hyperpar$`Precision for space.time`[, 1],
+       fitted_model$marginals.hyperpar$`Precision for space.time`[, 2],
        type = "l", xlab = "", ylab = "", lwd = 2.5,
        main = title)
 }
 
 #Plot the interactions
 plot_interaction <- function(fitted_model){
-  matplot(fitted_model$summary.random$space_time_unstructured[ , 4:6],
+  matplot(fitted_model$summary.random$space.time[ , 4:6],
           lty=c(2,1,2), type="l", col=1,
           xlab = "Datum ID", ylab = "Interaction effect")
 }
@@ -186,7 +186,7 @@ plot_fitted_vs_actual_together <- function(actual_data, fitted_model){
 }
 
 #Plot a time series for every county showing fitted values vs actual values
-every_county_time_series <- function(fitted_model){
+every_county_time_series <- function(fitted_model, n, T){
   #model_fitted: a model that is fitted, from which fitted values can be extracted
   #Plots a time
   par(mfrow=c(3,3))

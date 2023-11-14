@@ -9,8 +9,7 @@ install.packages(ggplot2)
 install.packages(ggspatial)
 install.packages(gridExtra)
 install.packages(ggpubr)
-install.packages(tidyverse)
-install.packages(tidyverse)
-install.packages(tidyverse)
+
+
 
 

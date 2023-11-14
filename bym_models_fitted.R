@@ -3,24 +3,16 @@ rm(list = ls())
 
 #Load necessary libraries
 library(INLA)
-library(tidyverse)
 library(spData)
 library(sf)
 library(spdep)
-library(ggplot2)
-library(ggspatial)
-library(gridExtra)
-library(ggpubr)
 
-
-#Set working directory
-if(getwd() != "C:/Users/joste/Documents/H2023/Code/Prosjektoppgave"){
-  setwd("H2023/Code/Prosjektoppgave/")
-}
+#Load utility functions
 source("utilities.R")
 
 #Load data
 ohio_df <- read.csv("ohio_df.csv")
+ohio_df$year <- ohio_df$year - min(ohio_df$year) + 1
 
 #read the shapefile of ohio
 ohio_map  <- read_sf('./fe_2007_39_county')[ ,c("geometry", "NAME")]
@@ -92,36 +84,12 @@ basic_model_fit <- inla(base_formula, data = ohio_df, family = "poisson",
                                                waic = T), # For model selection
                         ) 
 time_base = Sys.time()-ptm
-
-#Inference on the basic model
-print_cpo_etc(basic_model_fit, time_base)
-
-#See a lot of things (intercept, precisions, effects, etc)
-plot(basic_model_fit)
-
-#Plot the intercept
-plot_intercept(basic_model_fit)
-
-#Plot posterior distributions of precision of random effects
-plot_precisions_random_effects(basic_model_fit)
-
-#See Structured temporal effect
-plot_temporal_effect(basic_model_fit)
-
-#See structured spatial effect plotted as heatmap
-plot_spatial_effect(ohio_map, basic_model_fit)
-
-#See fitted values for each county w. median, and 0.025%- and 0.975% quantiles
-#along with actual values of rate as points
-every_county_time_series(basic_model_fit)
-
-#Plot the fitted values against the actual observed values
-plot_fitted_vs_actual_together(ohio_df, basic_model_fit)
+print(c("Basic model fitted in: ", time_base))
 
 ###
 
 #Update base formula to also contain iid interaction
-typeI_formula <- update(base_formula,  ~. + f(space_time_unstructured,
+typeI_formula <- update(base_formula,  ~. + f(space.time,
                                               model="iid", #Has to be iid, whole point
                                               hyper = interaction_hyper ))
 
@@ -131,40 +99,7 @@ typeI_fit <- inla(typeI_formula, data = ohio_df, family = 'poisson',
                                                           cpo = TRUE,    
                                                           waic = TRUE))
 time_typeI = Sys.time() - ptm
-
-#Inference on model w. type I interaction
-print_cpo_etc(typeI_fit, time_typeI)
-
-#See a lot of things (intercept, precisions, effects, etc)
-plot(typeI_fit)
-
-#Plot the intercept: Looks exactly like the one plotted for basic_model_fit (good)
-plot_intercept(typeI_fit)
-
-#Plot posterior distributions of precision of random effects: Similar to basic_model_fit
-plot_precisions_random_effects(typeI_fit)
-
-#See Structured temporal effect: Similar to basic_model_fit
-plot_temporal_effect(typeI_fit)
-
-#See structured spatial effect plotted as heatmap: Similar to basic_model_fit
-plot_spatial_effect(ohio_map, typeI_fit)
-
-#See fitted values for each county w. median, and 0.025%- and 0.975% quantiles
-#along with actual values of rate as points
-every_county_time_series(typeI_fit)
-
-#Plot the fitted values against the actual observed values
-plot_fitted_vs_actual_together(ohio_df, typeI_fit)
-
-#Plot to check up on shit with the interactions to do ehh
-
-#Precision of interactions
-plot_prec_interactions(typeI_fit, 
-                       "Posterior density of precision of type I interaction")
-
-#Interactions themselves
-plot_interaction(typeI_fit)
+print(c("Type I model fitted in: ", time_typeI))
 
 
 ###
@@ -181,7 +116,7 @@ scaled_RW_prec <- inla.scale.model(RW1_prec,
 #Get precision matric for type II interaction by Kronecker product
 typeII_prec <- scaled_RW_prec %x% diag(n)
 
-typeII_formula <- update(base_formula, ~. + f(space_time_unstructured, 
+typeII_formula <- update(base_formula, ~. + f(space.time, 
                                               model = "generic0", 
                                               Cmatrix = typeII_prec, 
                                               extraconstr = typeII_constraints, 
@@ -196,39 +131,7 @@ typeII_fit <- inla(typeII_formula, data = ohio_df, family = "poisson",
                                                            cpo = TRUE,
                                                            waic = TRUE))
 time_typeII = Sys.time() - ptm
-
-#Inference on type II model
-print_cpo_etc(typeII_fit, time_typeII)
-
-#See a lot of things (intercept, precisions, effects, etc)
-plot(typeII_fit)
-
-#Plot the intercept: Looks exactly like the one plotted for basic_model_fit (good)
-plot_intercept(typeII_fit)
-
-#Plot posterior distributions of precision of random effects: Similar to basic_model_fit
-plot_precisions_random_effects(typeII_fit)
-
-#See Structured temporal effect: Similar to basic_model_fit
-plot_temporal_effect(typeII_fit)
-
-#See structured spatial effect plotted as heatmap: Similar to basic_model_fit
-plot_spatial_effect(ohio_map, typeII_fit)
-
-#See fitted values for each county w. median, and 0.025%- and 0.975% quantiles
-#along with actual values of rate as points
-every_county_time_series(typeII_fit)
-
-#Plot the fitted values against the actual observed values
-plot_fitted_vs_actual_together(ohio_df, typeII_fit)
-
-
-#Precision of interactions
-plot_prec_interactions(typeII_fit, 
-                       "Posterior density of precision of type II interaction")
-
-#Interactions themselves
-plot_interaction(typeII_fit)
+print(c("Type II model fitted in: ", time_typeII))
 
 
 ###
@@ -245,7 +148,7 @@ scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_prec,
 # Kronecker product between IID x ICAR
 typeIII_prec <- diag(T) %x% scaled_ICAR_prec 
 
-typeIII_formula <- update(base_formula, ~. + f(space_time_unstructured, 
+typeIII_formula <- update(base_formula, ~. + f(space.time, 
                                                model = "generic0", 
                                                Cmatrix = typeIII_prec, 
                                                extraconstr = typeIII_constraints, 
@@ -253,45 +156,19 @@ typeIII_formula <- update(base_formula, ~. + f(space_time_unstructured,
                                                hyper = interaction_hyper))
 
 
+
 ptm <- Sys.time()
 typeIII_fit <- inla(typeIII_formula, data = ohio_df, family = "poisson",
                     E = pop_at_risk, control.compute = list(config = TRUE, 
                                                             cpo = TRUE,
-                                                            waic = TRUE))
+                                                            waic = TRUE),
+                    verbose = T)
+
+
+print("Type III fitted")
 time_typeIII = Sys.time() - ptm
+print(c("Type III model fitted in: ", time_typeIII))
 
-#Inference on type III model
-print_cpo_etc(typeIII_fit, time_typeIII)
-
-#See a lot of things (intercept, precisions, effects, etc)
-plot(typeIII_fit)
-
-#Plot the intercept: Looks exactly like the one plotted for basic_model_fit (good)
-plot_intercept(typeIII_fit)
-
-#Plot posterior distributions of precision of random effects: Similar to basic_model_fit
-plot_precisions_random_effects(typeIII_fit)
-
-#See Structured temporal effect: Similar to basic_model_fit
-plot_temporal_effect(typeIII_fit)
-
-#See structured spatial effect plotted as heatmap: Similar to basic_model_fit
-plot_spatial_effect(ohio_map, typeIII_fit)
-
-#See fitted values for each county w. median, and 0.025%- and 0.975% quantiles
-#along with actual values of rate as points
-every_county_time_series(typeIII_fit)
-
-#Plot the fitted values against the actual observed values
-plot_fitted_vs_actual_together(ohio_df, typeIII_fit)
-
-
-#Precision of interactions
-plot_prec_interactions(typeIII_fit, 
-                       "Posterior density of precision of type III interaction")
-
-#Interactions themselves
-plot_interaction(typeIII_fit)
 
 ###
 
@@ -304,7 +181,7 @@ typeIV_constraints <- constraints_maker(type = "IV", n = n, t = T)
 typeIV_prec <- scaled_RW_prec %x% scaled_ICAR_prec
 
 #Get formula for type IV
-typeIV_formula <- update(base_formula, ~. + f(space_time_unstructured, 
+typeIV_formula <- update(base_formula, ~. + f(space.time, 
                                               model = "generic0",
                                               Cmatrix = typeIV_prec,
                                               extraconstr = typeIV_constraints,
@@ -316,40 +193,19 @@ ptm <- Sys.time()
 typeIV_fit <- inla(typeIV_formula, data = ohio_df, family = "poisson",
                     E = pop_at_risk, control.compute = list(config = TRUE, 
                                                             cpo = TRUE,
-                                                            waic = TRUE))
+                                                            waic = TRUE),
+                   verbose = T)
 time_typeIV = Sys.time() - ptm
-
-#Inference on type IV model
-
-print_cpo_etc(typeIV_fit, time_typeIV)
-
-#See a lot of things (intercept, precisions, effects, etc)
-plot(typeIV_fit)
-
-#Plot the intercept: Looks exactly like the one plotted for basic_model_fit (good)
-plot_intercept(typeIV_fit)
-
-#Plot posterior distributions of precision of random effects: Similar to basic_model_fit
-plot_precisions_random_effects(typeIV_fit)
-
-#See Structured temporal effect: Similar to basic_model_fit
-plot_temporal_effect(typeIV_fit)
-
-#See structured spatial effect plotted as heatmap: Similar to basic_model_fit
-plot_spatial_effect(ohio_map, typeIV_fit)
-
-#See fitted values for each county w. median, and 0.025%- and 0.975% quantiles
-#along with actual values of rate as points
-every_county_time_series(typeIV_fit)
-
-#Plot the fitted values against the actual observed values
-plot_fitted_vs_actual_together(ohio_df, typeIV_fit)
+print(c("Type IV model fitted in: ", time_typeIV))
+print("Type IV fitted")
 
 
-#Precision of interactions
-plot_prec_interactions(typeIV_fit, 
-                       "Posterior density of precision of type IV interaction")
-
-#Interactions themselves
-plot_interaction(typeIV_fit)
+#Save INLA objects
+save(n, T, ohio_map, ohio_df,
+     basic_model_fit, time_base,
+     typeI_fit, time_typeI,
+     typeII_fit, time_typeII,
+     typeIII_fit, time_typeIII,
+     typeIV_fit, time_typeIV,
+     file = "BYM_models_fitted.RData")
 
