@@ -24,6 +24,8 @@ load("BYM_models_fitted.RData")
 
 
 #Inference on the basic model
+
+#Use mean of cpo instead...
 print_cpo_etc(basic_model_fit, time_base)
 
 #See a lot of things (intercept, precisions, effects, etc)
@@ -89,6 +91,9 @@ plot_interaction(typeI_fit)
 ###
 
 #Type II
+
+
+#Use posterior samples to plot different ratios...
 
 
 
