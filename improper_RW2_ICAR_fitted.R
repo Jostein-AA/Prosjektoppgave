@@ -108,12 +108,12 @@ scaled_RW_prec <- inla.scale.model(RW2_prec,
                                    list(A = matrix(1, 1, dim(RW2_prec)[1]),
                                         e = 0))
 
-#Get constraints for type II interaction using a RW2
-typeII_constraints = constraints_maker(type = "II", n = n, t = T, 
-                                       rw = "RW2", prec_matrix = scaled_RW_prec)
-
 #Get precision matric for type II interaction by Kronecker product
 typeII_prec <- scaled_RW_prec %x% diag(n)
+
+#Get constraints for type II interaction using a RW2
+typeII_constraints = constraints_maker(type = "II", n = n, t = T, 
+                                       rw = "RW2", prec_matrix = typeII_prec)
 
 typeII_formula <- update(base_formula, ~. + f(space.time, 
                                               model = "generic0", 
@@ -141,12 +141,12 @@ print(c("Type II model fitted in: ", time_RW2_ICAR_II))
 scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_prec, 
                                            constr = list(A = matrix(1,1,dim(ICAR_prec)[1]), e = 0))
 
-#Get constraints for the type III interactions
-typeIII_constraints <- constraints_maker(type = "III", n = n, t = T,
-                                         rw = "RW2", prec_matrix = scaled_ICAR_prec)
-
 # Kronecker product between IID x ICAR
 typeIII_prec <- diag(T) %x% scaled_ICAR_prec 
+
+#Get constraints for the type III interactions
+typeIII_constraints <- constraints_maker(type = "III", n = n, t = T,
+                                         rw = "RW2", prec_matrix = typeIII_prec)
 
 typeIII_formula <- update(base_formula, ~. + f(space.time, 
                                                model = "generic0", 

@@ -30,7 +30,11 @@ constraints_maker <- function(type = NULL, n = NULL, t = NULL,
       #For a type IV interaction, we have to do both sum-to-zero
       #over each RW on each county, and for each time point sum-to-zero
       #over each ICAR
-      
+      time_constr <- matrix(0, nrow = n, ncol = n * t)
+      for (i in 1:(n - 1)) {
+        time_constr[i, which((1:(n * t))%%n == i)] <- 1
+      }
+      time_constr[n, which((1:(n * t))%%n == 0)] <- 1
       
       space_constr <- matrix(0, nrow = t-1, ncol = n * t)
       for (i in 1:(t-1)) { 
@@ -46,7 +50,6 @@ constraints_maker <- function(type = NULL, n = NULL, t = NULL,
       
       #Extract 2n last eigenvectors corresponding to eigenvalues=0
       A <- t(eigens$vectors[ ,(nrow(eigens$vectors) - 2 * n + 1):nrow(eigens$vectors)])
-      
       
     } else if(type == "III"){
       #For a type III interaction, there is a indep. ICAR at each time point
