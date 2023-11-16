@@ -1,42 +1,69 @@
 #Constraint maker function
-constraints_maker <- function(type = NULL, n = NULL, t = NULL){
+constraints_maker <- function(type = NULL, n = NULL, t = NULL,
+                              rw = "RW1", prec_matrix = NULL){
   #Type: specifies what interaction type and hence what type of constraint is desired
   #n: specifies number of areas
   #t: specifies number of time points
-  if(type == "II"){
-    #For a type II interaction, there is a RW(1) over each interaction (assuming RW1)
-    #Hence for each county, constrain the RW to sum-to-zero
-    A <- matrix(0, nrow = n, ncol = n * t)
-    for (i in 1:(n - 1)) {
-      A[i, which((1:(n * t))%%n == i)] <- 1
+  #rw: specifies if temporal random effects follows a RW1 or RW2
+  #prec_matrix: Precision matrix, used to define constraints using eigenvectors (only for RW2)
+  
+  if(rw == "RW1"){ #Define constraints for RW(1)
+    if(type == "II"){
+      #For a type II interaction, there is a RW(1) over each interaction (assuming RW1)
+      #Hence for each county, constrain the RW to sum-to-zero
+      A <- matrix(0, nrow = n, ncol = n * t)
+      for (i in 1:(n - 1)) {
+        A[i, which((1:(n * t))%%n == i)] <- 1
+      }
+      A[n, which((1:(n * t))%%n == 0)] <- 1
+      
+    } else if(type == "III"){
+      #For a type III interaction, there is a indep. ICAR at each time point
+      #Need the ICAR at each time point to sum-to-zero
+      A <- matrix(0, nrow = t, ncol = n * t)
+      for (i in 1:t) {
+        # The ICAR at each time point needs to sum to 0
+        A[i, ((i - 1) * n + 1):(i * n)] <- 1
+      }
+      
+    } else if(type == "IV"){
+      #For a type IV interaction, we have to do both sum-to-zero
+      #over each RW on each county, and for each time point sum-to-zero
+      #over each ICAR
+      
+      
+      space_constr <- matrix(0, nrow = t-1, ncol = n * t)
+      for (i in 1:(t-1)) { 
+        space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
+      }
+      
+      A <- rbind(time_constr, space_constr)
     }
-    A[n, which((1:(n * t))%%n == 0)] <- 1
-    
-  } else if(type == "III"){
-    #For a type III interaction, there is a indep. ICAR at each time point
-    #Need the ICAR at each time point to sum-to-zero
-    A <- matrix(0, nrow = t, ncol = n * t)
-    for (i in 1:t) {
-      # The ICAR at each time point needs to sum to 0
-      A[i, ((i - 1) * n + 1):(i * n)] <- 1
+  } else{ #Define constraints with RW2
+    if(type == "II"){
+      #For a type II interaction, there is a RW(2) over each interaction (assuming RW2)
+      eigens <- eigen(prec_matrix)
+      
+      #Extract 2n last eigenvectors corresponding to eigenvalues=0
+      A <- t(eigens$vectors[ ,(nrow(eigens$vectors) - 2 * n + 1):nrow(eigens$vectors)])
+      
+      
+    } else if(type == "III"){
+      #For a type III interaction, there is a indep. ICAR at each time point
+      #Need the ICAR at each time point to sum-to-zero
+      A <- matrix(0, nrow = t, ncol = n * t)
+      for (i in 1:t) {
+        # The ICAR at each time point needs to sum to 0
+        A[i, ((i - 1) * n + 1):(i * n)] <- 1
+      }
+      
+    } else if(type == "IV"){
+      #Calculate eigenvectors
+      eigens <- eigen(prec_matrix)
+      
+      #Extract 2n + T - 2 last eigenvectors corresponding to eigenvalues=0
+      A <- t(eigens$vectors[ ,(nrow(eigens$vectors) - 2 * n - T + 3):nrow(eigens$vectors)])
     }
-    
-  } else if(type == "IV"){
-    #For a type IV interaction, we have to do both sum-to-zero
-    #over each RW on each county, and for each time point sum-to-zero
-    #over each ICAR
-    time_constr <- matrix(0, nrow = n, ncol = n * t)
-    for (i in 1:(n - 1)) {
-      time_constr[i, which((1:(n * t))%%n == i)] <- 1
-    }
-    time_constr[n, which((1:(n * t))%%n == 0)] <- 1
-    
-    space_constr <- matrix(0, nrow = t-1, ncol = n * t)
-    for (i in 1:(t-1)) { 
-      space_constr[i, ((i - 1) * n + 1):(i * n)] <- 1
-    }
-    
-    A <- rbind(time_constr, space_constr)
   }
   
   #Get constraints in INLA format

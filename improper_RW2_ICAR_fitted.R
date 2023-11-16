@@ -103,17 +103,15 @@ print(c("Type I model fitted in: ", time_RW2_ICAR_I))
 
 #Type II
 
-#Get sum-to-zero constraints for type II interaction: How is it supposed to be for RW2?
-#The constraints are not correctly implemented for RW2
-
-tactical error
-
-typeII_constraints = constraints_maker(type = "II", n = n, t = T)
-
 #Scale precision matrix of RW model so the geometric mean of the marginal variances is one
 scaled_RW_prec <- inla.scale.model(RW2_prec,
                                    list(A = matrix(1, 1, dim(RW2_prec)[1]),
                                         e = 0))
+
+#Get constraints for type II interaction using a RW2
+typeII_constraints = constraints_maker(type = "II", n = n, t = T, 
+                                       rw = "RW2", prec_matrix = scaled_RW_prec)
+
 #Get precision matric for type II interaction by Kronecker product
 typeII_prec <- scaled_RW_prec %x% diag(n)
 
@@ -121,7 +119,7 @@ typeII_formula <- update(base_formula, ~. + f(space.time,
                                               model = "generic0", 
                                               Cmatrix = typeII_prec, 
                                               extraconstr = typeII_constraints, 
-                                              rankdef = (2 * n), #Init? 
+                                              rankdef = (2 * n),  
                                               hyper = interaction_hyper))
 
 
@@ -139,12 +137,13 @@ print(c("Type II model fitted in: ", time_RW2_ICAR_II))
 
 #Type III
 
-#Get constraints for the type III interactions
-typeIII_constraints <- constraints_maker(type = "III", n = n, t = T)
-
 # get scaled ICAR
 scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_prec, 
                                            constr = list(A = matrix(1,1,dim(ICAR_prec)[1]), e = 0))
+
+#Get constraints for the type III interactions
+typeIII_constraints <- constraints_maker(type = "III", n = n, t = T,
+                                         rw = "RW2", prec_matrix = scaled_ICAR_prec)
 
 # Kronecker product between IID x ICAR
 typeIII_prec <- diag(T) %x% scaled_ICAR_prec 
@@ -177,6 +176,10 @@ typeIV_constraints <- constraints_maker(type = "IV", n = n, t = T)
 
 #Get type IV interaction precision matrix
 typeIV_prec <- scaled_RW_prec %x% scaled_ICAR_prec
+
+#Get constraints for the type III interactions
+typeIV_constraints <- constraints_maker(type = "IV", n = n, t = T,
+                                         rw = "RW2", prec_matrix = typeIV_prec)
 
 #Get formula for type IV
 typeIV_formula <- update(base_formula, ~. + f(space.time, 
