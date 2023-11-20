@@ -33,6 +33,13 @@ ohio_map <- ohio_map[order(ohio_map$NAME), ]
 n <- length(unique(ohio_df$county))   # Number of areas
 T <- length(unique(ohio_df$year))     # Number of time points
 
+#Plot dependency structure of Ohio
+nb <- spdep::poly2nb(ohio_map, queen = FALSE)
+plot(st_geometry(ohio_map), border = "grey")
+plot.nb(nb, st_geometry(ohio_map), add = TRUE)
+
+
+
 ###
 #Plot mean and standard deviation of rate for each county
 
