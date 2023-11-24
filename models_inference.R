@@ -20,10 +20,106 @@ if(getwd() != "C:/Users/joste/Documents/H2023/Code/Prosjektoppgave"){
 source("utilities.R")
 
 #Load in INLA objects
-load("BYM_models_fitted.RData")
+load("improper_RW1_ICAR_fitted.RData")
+load("improper_RW2_ICAR_fitted.RData")
 
 
-#Inference on the basic model
+
+
+################################################################################
+#Create latex table with results
+#Format results data.frame for latex table
+results.df <- data.frame(Model = rep(c("1", "2", "3", "4", "5"), 3),
+                         RW = c(rep("1", 15), rep("2", 15)),
+                         model_choice = rep(c("1", "2", "3"), 10),
+                         value = 1:30)
+
+
+#model = 1 -> base, model = 2 -> type I,..., model = 5 -> type IV
+#RW = 1 -> RW1, RW = 2 -> RW2
+#model_choice = 1 -> CPO, model_choice = 2 -> WAIC, model_choice = 3 -> Computational time (s)
+
+#Insert values into table
+#RW1 base model
+results.df$value[results.df$RW == "1" & results.df$Model == "1" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_fit$cpo$cpo))
+results.df$value[results.df$RW == "1" & results.df$Model == "1" & results.df$model_choice == "2"] = RW1_ICAR_fit$waic$waic
+results.df$value[results.df$RW == "1" & results.df$Model == "1" & results.df$model_choice == "3"] = time_RW1_ICAR
+
+#RW1 type I
+results.df$value[results.df$RW == "1" & results.df$Model == "2" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_I_fit$cpo$cpo))
+results.df$value[results.df$RW == "1" & results.df$Model == "2" & results.df$model_choice == "2"] = RW1_ICAR_I_fit$waic$waic
+results.df$value[results.df$RW == "1" & results.df$Model == "2" & results.df$model_choice == "3"] = time_RW1_ICAR_I
+
+#RW1 type II
+results.df$value[results.df$RW == "1" & results.df$Model == "3" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_II_fit$cpo$cpo))
+results.df$value[results.df$RW == "1" & results.df$Model == "3" & results.df$model_choice == "2"] = RW1_ICAR_II_fit$waic$waic
+results.df$value[results.df$RW == "1" & results.df$Model == "3" & results.df$model_choice == "3"] = time_RW1_ICAR_II
+
+#RW1 type III
+results.df$value[results.df$RW == "1" & results.df$Model == "4" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_III_fit$cpo$cpo))
+results.df$value[results.df$RW == "1" & results.df$Model == "4" & results.df$model_choice == "2"] = RW1_ICAR_III_fit$waic$waic
+results.df$value[results.df$RW == "1" & results.df$Model == "4" & results.df$model_choice == "3"] = time_RW1_ICAR_III
+
+#RW1 Type IV
+results.df$value[results.df$RW == "1" & results.df$Model == "5" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_IV_fit$cpo$cpo))
+results.df$value[results.df$RW == "1" & results.df$Model == "5" & results.df$model_choice == "2"] = RW1_ICAR_IV_fit$waic$waic
+results.df$value[results.df$RW == "1" & results.df$Model == "5" & results.df$model_choice == "3"] = time_RW1_ICAR_IV
+
+#RW2 base model
+results.df$value[results.df$RW == "2" & results.df$Model == "1" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_fit$cpo$cpo))
+results.df$value[results.df$RW == "2" & results.df$Model == "1" & results.df$model_choice == "2"] = RW2_ICAR_fit$waic$waic
+results.df$value[results.df$RW == "2" & results.df$Model == "1" & results.df$model_choice == "3"] = time_RW2_ICAR
+
+#RW2 type I
+results.df$value[results.df$RW == "2" & results.df$Model == "2" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_I_fit$cpo$cpo))
+results.df$value[results.df$RW == "2" & results.df$Model == "2" & results.df$model_choice == "2"] = RW2_ICAR_I_fit$waic$waic
+results.df$value[results.df$RW == "2" & results.df$Model == "2" & results.df$model_choice == "3"] = time_RW2_ICAR_I
+
+#RW2 type II
+results.df$value[results.df$RW == "2" & results.df$Model == "3" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_II_fit$cpo$cpo))
+results.df$value[results.df$RW == "2" & results.df$Model == "3" & results.df$model_choice == "2"] = RW2_ICAR_II_fit$waic$waic
+results.df$value[results.df$RW == "2" & results.df$Model == "3" & results.df$model_choice == "3"] = time_RW2_ICAR_II
+
+#RW2 type III
+results.df$value[results.df$RW == "2" & results.df$Model == "4" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_III_fit$cpo$cpo))
+results.df$value[results.df$RW == "2" & results.df$Model == "4" & results.df$model_choice == "2"] = RW2_ICAR_III_fit$waic$waic
+results.df$value[results.df$RW == "2" & results.df$Model == "4" & results.df$model_choice == "3"] = time_RW2_ICAR_III
+
+#RW2 Type IV
+results.df$value[results.df$RW == "2" & results.df$Model == "5" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_IV_fit$cpo$cpo))
+results.df$value[results.df$RW == "2" & results.df$Model == "5" & results.df$model_choice == "2"] = RW2_ICAR_IV_fit$waic$waic
+results.df$value[results.df$RW == "2" & results.df$Model == "5" & results.df$model_choice == "3"] = time_RW2_ICAR_IV
+
+#Make caption and label for latex table
+caption = "Results"
+label = "tab:all-results"
+
+#Make latex table
+latex_tabular <- latexTable(tabular(
+  Heading()*RowFactor(RW, levelnames = c("RW1", "RW2"))*
+    Heading("Model")*RowFactor(Model, levelnames = c("base model",
+                                              "interaction type I",
+                                              "interaction type II",
+                                              "interaction type III",
+                                              "interaction type IV"),
+                        nopagebreak = "\\hline",
+                        spacing = 0)~
+    Heading()*Factor(model_choice, 
+                     levelnames = c("CPO", "WAIC", "Computational time (s)"))*
+    Heading()*value*Heading()*identity,
+  data = results.df),
+  caption = caption,
+  label = label
+)
+latex_tabular
+
+#Save latex table
+cat(latex_tabular, file = "table.tex")
+
+################################################################################
+
+
+
 
 #Use mean of cpo instead...
 print_cpo_etc(basic_model_fit, time_base)
