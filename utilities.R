@@ -87,6 +87,156 @@ print_cpo_etc <- function(fitted_model, time_obj){
 }
 
 
+
+#Plot posterior intercept, temporal effects and spatial effects
+plot_random_effects <- function(fitted_model, map, n, T){
+  #Function that produces four plots: The posterior intercept, 
+  #posterior structured temporal effect along with 2.5% and 97.5% quantiles
+  
+  #Format intercept for ggplot
+  intercept.df <- data.frame(x = fitted_model$marginals.fixed$`(Intercept)`[, 1])
+  intercept.df$y <- fitted_model$marginals.fixed$`(Intercept)`[, 2]
+  
+  intercept <- ggplot(data = intercept.df, aes(x = x, y = y)) + 
+    theme_bw() +
+    geom_line() + 
+    xlab(expression(mu)) + ylab(expression(f(mu))) + 
+    ggtitle("Posterior Density of Intercept")
+  
+  
+  #Format temporal random effects for ggplot
+  years <- 1968:1988
+  temporal.df <- data.frame(years = years)
+  
+  temporal.df$lower_quant <- fitted_model$summary.random$year[(T + 1):(2 * T), 4]
+  temporal.df$median <- fitted_model$summary.random$year[(T + 1):(2 * T), 5]
+  temporal.df$upper_quant <- fitted_model$summary.random$year[(T + 1):(2 * T), 6]
+  
+  
+  temporal <- ggplot(data = temporal.df, aes(years, median)) + 
+    theme_bw() +
+    geom_line() + 
+    geom_line(data = temporal.df, aes(years, lower_quant), linetype = "dashed") + 
+    geom_line(data = temporal.df, aes(years, upper_quant), linetype = "dashed") + 
+    xlab("year: t") + ylab(expression(alpha[t])) + 
+    ggtitle("Structured Temporal Effect")
+  
+  scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
+  scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
+  
+  spatial_structured_effect_mean <- fitted_model$summary.random$county$mean[(n+1):(2*n)]
+  spatial_structured_effect_sd <- fitted_model$summary.random$county$sd[(n+1):(2*n)]
+  temp_ohio_map <- map[ ,c("geometry", "NAME")]
+  temp_ohio_map$mean <- spatial_structured_effect_mean
+  temp_ohio_map$sd <- spatial_structured_effect_sd
+  
+  p_1 <- ggplot(data = temp_ohio_map) + 
+    geom_sf(aes(fill = mean), 
+            alpha = 1,
+            color="black") + ggtitle("Mean Spatial Structured Effect each County") +
+    theme(plot.title = element_text(size = 12),
+          axis.title.x = element_blank(), #Remove axis and background grid
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          panel.spacing = unit(1, 'lines')) +
+    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+    binned_scale( #Scaling the color
+      aesthetics = "fill",
+      scale_name = "gradientn",
+      palette = function(x) c(scale_1),
+      labels = function(x){x},
+      guide = "colorscale")
+  
+  p_2 <- ggplot(data = temp_ohio_map) + 
+    geom_sf(aes(fill = sd), 
+            alpha = 1,
+            color="black") + ggtitle("Std deviation of spatial effect for each county") +
+    theme(plot.title = element_text(size = 12),
+          axis.title.x = element_blank(), #Remove axis and background grid
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          panel.spacing = unit(1, 'lines')) +
+    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+    binned_scale( #Scaling the color
+      aesthetics = "fill",
+      scale_name = "gradientn",
+      palette = function(x) c(scale_1),
+      labels = function(x){x},
+      guide = "colorscale")
+  
+  ggarrange(intercept, temporal,
+            p_1, p_2,
+            ncol = 2, nrow = 2,
+            common.legend = FALSE)
+}
+
+
+#Plot posterior hyperparameters of temporal and random effects
+plot_temporal_spatial_hyperparameters <- function(fitted_model){
+  
+  
+  
+  #Format for ggplot
+  
+  #inla.tmarginal to transform from precision to variance
+  variance_year <- inla.tmarginal(function(x) 1/x, fitted_model$marginals.hyperpar$`Precision for year`)
+  hyperpars.df <- data.frame(var_year_x = variance_year[, 1])
+  hyperpars.df$var_year_y <- variance_year[, 2]
+  
+  hyperpars_2.df <- data.frame(phi_year_x = fitted_model$marginals.hyperpar$`Phi for year`[, 1])
+  hyperpars_2.df$phi_year_y <- fitted_model$marginals.hyperpar$`Phi for year`[, 2]
+  
+  variance_county <- inla.tmarginal(function(x) 1/x, fitted_model$marginals.hyperpar$`Precision for county`)
+  hyperpars.df$variance_county_x <- variance_county[, 1]
+  hyperpars.df$variance_county_y <- variance_county[, 2]
+  
+  hyperpars_2.df$phi_county_x <- fitted_model$marginals.hyperpar$`Phi for county`[, 1]
+  hyperpars_2.df$phi_county_y <- fitted_model$marginals.hyperpar$`Phi for county`[, 2]
+  
+ 
+  
+  #Set the theme to black-white for all ggplots
+  theme_set(theme_bw())
+  
+  var_year <- ggplot(hyperpars.df, aes(x = var_year_x, y = var_year_y)) + 
+    geom_line() + 
+    xlab(expression(sigma^2)) + ylab(expression(f(sigma^2))) + 
+    ggtitle("Posterior Density of Temporal Variance") 
+  
+  phi_year <- ggplot(hyperpars_2.df, aes(x = phi_year_x, y = phi_year_y)) + 
+    geom_line() + 
+    xlab(expression(phi)) + ylab(expression(f(phi))) + 
+    ggtitle("Posterior Density of Temporal Mixing Parameter")
+  
+  
+  var_county <- ggplot(hyperpars.df, aes(x = variance_county_x, y = variance_county_y)) + 
+    geom_line() + 
+    xlab(expression(sigma^2)) + ylab(expression(f(sigma^2))) + 
+    ggtitle("Posterior Density of Spatial Variance") 
+  
+  phi_county <- ggplot(hyperpars_2.df, aes(x = phi_county_x, y = phi_county_y)) + 
+    geom_line() + 
+    xlab(expression(phi)) + ylab(expression(f(phi))) + 
+    ggtitle("Posterior Density of Spatial Mixing Parameter")
+  
+  ggarrange(var_year, phi_year,
+            var_county, phi_county,
+            ncol = 2, nrow = 2)
+  
+}
+
+
+
+
+
 #Plot posterior intercept
 plot_intercept <- function(fitted_model){
   #Function that plots the posterior distribution of the intercept

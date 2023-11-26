@@ -119,13 +119,30 @@ cat(latex_tabular, file = "table.tex")
 ################################################################################
 
 
+#Get the intercept and temporal structured effect plotted
+plot_random_effects(RW1_ICAR_fit, ohio_map, n, T)
 
+#Plot the posterior hyperparameters
+plot_temporal_spatial_hyperparameters(RW1_ICAR_fit)
+
+
+
+
+
+
+
+
+
+
+
+#####
+#Code prison
 
 #Use mean of cpo instead...
-print_cpo_etc(basic_model_fit, time_base)
+print_cpo_etc(RW1_ICAR_fit, time_RW1_ICAR)
 
 #See a lot of things (intercept, precisions, effects, etc)
-plot(basic_model_fit)
+plot(RW1_ICAR_fit)
 
 #Plot the intercept
 plot_intercept(basic_model_fit)
