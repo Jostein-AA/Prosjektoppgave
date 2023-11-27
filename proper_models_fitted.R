@@ -82,7 +82,7 @@ interaction_hyper = list(theta=list(prior="pc.prec",
 
 
 base_formula <- deaths ~ 1 + f(year, model = "ar1") +
-                             f(county, model = )
+                             f(county, model = "besagproper2")
 
 ###
 
