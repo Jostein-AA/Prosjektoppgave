@@ -247,11 +247,11 @@ rates.df <- data.frame(fitted_rates = c(RW1_ICAR_fit$summary.fitted.values$mean,
                                 rep("Type I", length(RW1_ICAR_I_fit$summary.fitted.values$mean)),
                                 rep("Type II", length(RW1_ICAR_II_fit$summary.fitted.values$mean)),
                                 rep("Type III", length(RW1_ICAR_III_fit$summary.fitted.values$mean)),
-                                rep("Type I", length(RW1_ICAR_IV_fit$summary.fitted.values$mean))))
+                                rep("Type IV", length(RW1_ICAR_IV_fit$summary.fitted.values$mean))))
 
 
 
-
+violin_plot_rate(rates.df)
 
 
 #Observed vs predicted plots as lines???

@@ -611,9 +611,13 @@ case_count_plot_1_year <- function(sf_data,
 
 
 
-violin_plot_rate <- function(){
-  
-  
+violin_plot_rate <- function(rates.df){
+  ggplot(data = rates.df, aes(x=type, y=fitted_rates, fill=type)) + 
+  geom_violin() +
+  xlab("Model") +
+  theme(legend.position="none") +
+    theme_bw() + 
+  ylab("Relative Risk")
 }
 
 
