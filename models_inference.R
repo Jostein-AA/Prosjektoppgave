@@ -119,12 +119,148 @@ cat(latex_tabular, file = "table.tex")
 ################################################################################
 
 
-#Get the intercept and temporal structured effect plotted
-plot_random_effects(RW1_ICAR_fit, ohio_map, n, T)
+#Plot the intercept
+plot_intercept(RW1_ICAR_fit)
 
-#Plot the posterior hyperparameters
-plot_temporal_spatial_hyperparameters(RW1_ICAR_fit)
 
+#Plot the temporal random effect RW1 vs RW2
+plot_temporal_effects_RW1_RW2(RW1_ICAR_fit, RW2_ICAR_fit, T)
+
+#Plot spatial effects
+plot_spatial_effects(RW1_ICAR_fit, ohio_map, n)
+
+#Plot the posterior hyperparameters (should it include RW2?)
+plot_temporal_spatial_hyperparameters(RW1_ICAR_fit, RW2_ICAR_fit)
+
+
+#Plot the interactions
+#RW1
+plot_interaction(RW1_ICAR_I_fit,
+                 RW1_ICAR_II_fit,
+                 RW1_ICAR_III_fit,
+                 RW1_ICAR_IV_fit)
+#RW2
+plot_interaction(RW2_ICAR_I_fit,
+                 RW2_ICAR_II_fit,
+                 RW2_ICAR_III_fit,
+                 RW2_ICAR_IV_fit)
+
+
+#Plot hyperparameter for interactions
+#RW1
+plot_std_interactions_RW1(RW1_ICAR_I_fit,
+                          RW1_ICAR_II_fit,
+                          RW1_ICAR_III_fit,
+                          RW1_ICAR_IV_fit)
+
+#RW2
+plot_std_interactions_RW2(RW2_ICAR_I_fit,
+                          RW2_ICAR_II_fit,
+                          RW2_ICAR_III_fit,
+                          RW2_ICAR_IV_fit)
+
+
+#Fitted values of best model against true values 
+plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
+                               RW1_ICAR_II_fit, n, T)
+
+
+#Plot fitted-values for certain regions against true values (as time series)
+counties = c(3, 18, 33, 48, 66, 78)
+
+every_county_time_series(RW1_ICAR_II_fit, ohio_df, 
+                         counties, n, T)
+
+#####
+#Plot the heatmaps of some years (1968, 1973, 1978, 1983, 1988 maybe?) for some models
+#Base model, RW1 type II, RW1 type IV, maybe proper ones
+years_to_plot = c(1968, 1975, 1980, 1988)
+
+
+#Extract true values for years_to_plot
+if(ohio_df$year[1]==1){
+  ohio_df$year = ohio_df$year + (1968 - 1)
+}
+
+actual <- ohio_df[ohio_df$year %in% years_to_plot, ]
+
+#Merge true values with map
+actual_n_map <- merge(ohio_map, actual,
+                      by.x = c("NAME"), by.y = c("name"),
+                      all = T, suffixes = T)
+
+#Get death rate per 100 000
+actual_n_map$rate <- actual_n_map$rate * 1E5 
+
+#Hardcoded bins
+hardcoded_bins = seq(min(actual_n_map$rate) - 0.5,
+                     max(actual_n_map$rate) + 0.5,
+                     length.out = 8)
+hardcoded_bins = round(hardcoded_bins, 0)
+
+p1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins)
+p2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins)
+p3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins)
+p4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins)
+
+ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
+          common.legend = TRUE, legend = "right")
+
+
+#Extract relative risk for base
+#years_1_21 <- c(1, 8, 13, 21)
+fitted_values_base_y1 <- RW1_ICAR_fit$summary.fitted.values$mean[1:(88)] * 1E5
+fitted_values_base_y2 <- RW1_ICAR_fit$summary.fitted.values$mean[(7 * 88 + 1):(8 * 88)] * 1E5
+fitted_values_base_y3 <- RW1_ICAR_fit$summary.fitted.values$mean[(12 * 88 + 1):(13 * 88)] * 1E5
+fitted_values_base_y4 <- RW1_ICAR_fit$summary.fitted.values$mean[(20 * 88 + 1):(21 * 88)] * 1E5
+min1 <- min(fitted_values_base_y1); min2 <- min(fitted_values_base_y2); min3<- min(fitted_values_base_y3); min4<- min(fitted_values_base_y4)
+max1 <- max(fitted_values_base_y1); max2 <- max(fitted_values_base_y2); max3<- max(fitted_values_base_y3); max4<- max(fitted_values_base_y4)
+#hardcoded_bins <- seq(min(min1, min2, min3, min4) - 1,
+#                      max(max1, max2, max3, max4) + 1,
+#                      length.out = 8)
+#hardcoded_bins = round(hardcoded_bins, 0)
+
+base_map <- ohio_map
+base_map$rate <- fitted_values_base_y1; base_map$year = rep(1968, 88)
+p1 <- case_count_plot_1_year(base_map, years_to_plot[1], hardcoded_bins)
+
+base_map$rate <- fitted_values_base_y2; base_map$year = rep(1975, 88)
+p2 <- case_count_plot_1_year(base_map, years_to_plot[2], hardcoded_bins)
+
+base_map$rate <- fitted_values_base_y3; base_map$year = rep(1980, 88)
+p3 <- case_count_plot_1_year(base_map, years_to_plot[3], hardcoded_bins)
+
+base_map$rate <- fitted_values_base_y4; base_map$year = rep(1988, 88)
+p4 <- case_count_plot_1_year(base_map, years_to_plot[4], hardcoded_bins)
+
+ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
+          common.legend = TRUE, legend = "right")
+
+#####
+#Violin plots of the relative risk
+rates.df <- data.frame(fitted_rates = c(RW1_ICAR_fit$summary.fitted.values$mean,
+                                        RW1_ICAR_I_fit$summary.fitted.values$mean,
+                                        RW1_ICAR_II_fit$summary.fitted.values$mean,
+                                        RW1_ICAR_III_fit$summary.fitted.values$mean,
+                                        RW1_ICAR_IV_fit$summary.fitted.values$mean),
+                       type = c(rep("base", length(RW1_ICAR_fit$summary.fitted.values$mean)),
+                                rep("Type I", length(RW1_ICAR_I_fit$summary.fitted.values$mean)),
+                                rep("Type II", length(RW1_ICAR_II_fit$summary.fitted.values$mean)),
+                                rep("Type III", length(RW1_ICAR_III_fit$summary.fitted.values$mean)),
+                                rep("Type I", length(RW1_ICAR_IV_fit$summary.fitted.values$mean))))
+
+
+
+
+
+
+#Observed vs predicted plots as lines???
+
+
+
+
+
+#One-step predictor ...
 
 
 

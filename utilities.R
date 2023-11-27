@@ -87,40 +87,58 @@ print_cpo_etc <- function(fitted_model, time_obj){
 }
 
 
-
-#Plot posterior intercept, temporal effects and spatial effects
-plot_random_effects <- function(fitted_model, map, n, T){
-  #Function that produces four plots: The posterior intercept, 
-  #posterior structured temporal effect along with 2.5% and 97.5% quantiles
-  
+#Plot the intercept
+plot_intercept <- function(fitted_model){
   #Format intercept for ggplot
   intercept.df <- data.frame(x = fitted_model$marginals.fixed$`(Intercept)`[, 1])
   intercept.df$y <- fitted_model$marginals.fixed$`(Intercept)`[, 2]
   
-  intercept <- ggplot(data = intercept.df, aes(x = x, y = y)) + 
+  ggplot(data = intercept.df, aes(x = x, y = y)) + 
     theme_bw() +
     geom_line() + 
     xlab(expression(mu)) + ylab(expression(f(mu))) + 
     ggtitle("Posterior Density of Intercept")
-  
-  
+}
+
+#Plot temporal effect RW1 vs RW2
+plot_temporal_effects_RW1_RW2 <- function(fitted_RW1, fitted_RW2, T){
   #Format temporal random effects for ggplot
   years <- 1968:1988
-  temporal.df <- data.frame(years = years)
+  temporal_RW1.df <- data.frame(years = years)
+  temporal_RW1.df$lower_quant <- fitted_RW1$summary.random$year[(T + 1):(2 * T), 4]
+  temporal_RW1.df$median <- fitted_RW1$summary.random$year[(T + 1):(2 * T), 5]
+  temporal_RW1.df$upper_quant <- fitted_RW1$summary.random$year[(T + 1):(2 * T), 6]
   
-  temporal.df$lower_quant <- fitted_model$summary.random$year[(T + 1):(2 * T), 4]
-  temporal.df$median <- fitted_model$summary.random$year[(T + 1):(2 * T), 5]
-  temporal.df$upper_quant <- fitted_model$summary.random$year[(T + 1):(2 * T), 6]
+  temporal_RW2.df <- data.frame(years = years)
+  temporal_RW2.df$lower_quant <- fitted_RW2$summary.random$year[(T + 1):(2 * T), 4]
+  temporal_RW2.df$median <- fitted_RW2$summary.random$year[(T + 1):(2 * T), 5]
+  temporal_RW2.df$upper_quant <- fitted_RW2$summary.random$year[(T + 1):(2 * T), 6]
   
   
-  temporal <- ggplot(data = temporal.df, aes(years, median)) + 
+  temporal_RW1 <- ggplot(data = temporal_RW1.df, aes(years, median)) + 
     theme_bw() +
     geom_line() + 
-    geom_line(data = temporal.df, aes(years, lower_quant), linetype = "dashed") + 
-    geom_line(data = temporal.df, aes(years, upper_quant), linetype = "dashed") + 
+    geom_line(data = temporal_RW1.df, aes(years, lower_quant), linetype = "dashed") + 
+    geom_line(data = temporal_RW1.df, aes(years, upper_quant), linetype = "dashed") + 
     xlab("year: t") + ylab(expression(alpha[t])) + 
-    ggtitle("Structured Temporal Effect")
+    ggtitle("Structured Temporal Effect RW1")
   
+  temporal_RW2 <- ggplot(data = temporal_RW2.df, aes(years, median)) + 
+    theme_bw() +
+    geom_line() + 
+    geom_line(data = temporal_RW2.df, aes(years, lower_quant), linetype = "dashed") + 
+    geom_line(data = temporal_RW2.df, aes(years, upper_quant), linetype = "dashed") + 
+    xlab("year: t") + ylab(expression(alpha[t])) + 
+    ggtitle("Structured Temporal Effect RW2")
+  
+  ggarrange(temporal_RW1, temporal_RW2)
+}
+
+
+#Plot posterior intercept, temporal effects and spatial effects
+plot_spatial_effects <- function(fitted_model, map, n){
+  #Function that produces four plots: The posterior intercept, 
+  #posterior structured temporal effect along with 2.5% and 97.5% quantiles
   scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
   scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
   
@@ -130,6 +148,8 @@ plot_random_effects <- function(fitted_model, map, n, T){
   temp_ohio_map$mean <- spatial_structured_effect_mean
   temp_ohio_map$sd <- spatial_structured_effect_sd
   
+  #Set the theme to minimal
+  theme_set(theme(panel.background = element_blank()))
   p_1 <- ggplot(data = temp_ohio_map) + 
     geom_sf(aes(fill = mean), 
             alpha = 1,
@@ -154,166 +174,7 @@ plot_random_effects <- function(fitted_model, map, n, T){
   p_2 <- ggplot(data = temp_ohio_map) + 
     geom_sf(aes(fill = sd), 
             alpha = 1,
-            color="black") + ggtitle("Std deviation of spatial effect for each county") +
-    theme(plot.title = element_text(size = 12),
-          axis.title.x = element_blank(), #Remove axis and background grid
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          panel.background = element_blank(),
-          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
-          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-          panel.spacing = unit(1, 'lines')) +
-    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
-    binned_scale( #Scaling the color
-      aesthetics = "fill",
-      scale_name = "gradientn",
-      palette = function(x) c(scale_1),
-      labels = function(x){x},
-      guide = "colorscale")
-  
-  ggarrange(intercept, temporal,
-            p_1, p_2,
-            ncol = 2, nrow = 2,
-            common.legend = FALSE)
-}
-
-
-#Plot posterior hyperparameters of temporal and random effects
-plot_temporal_spatial_hyperparameters <- function(fitted_model){
-  
-  
-  
-  #Format for ggplot
-  
-  #inla.tmarginal to transform from precision to variance
-  variance_year <- inla.tmarginal(function(x) 1/x, fitted_model$marginals.hyperpar$`Precision for year`)
-  hyperpars.df <- data.frame(var_year_x = variance_year[, 1])
-  hyperpars.df$var_year_y <- variance_year[, 2]
-  
-  hyperpars_2.df <- data.frame(phi_year_x = fitted_model$marginals.hyperpar$`Phi for year`[, 1])
-  hyperpars_2.df$phi_year_y <- fitted_model$marginals.hyperpar$`Phi for year`[, 2]
-  
-  variance_county <- inla.tmarginal(function(x) 1/x, fitted_model$marginals.hyperpar$`Precision for county`)
-  hyperpars.df$variance_county_x <- variance_county[, 1]
-  hyperpars.df$variance_county_y <- variance_county[, 2]
-  
-  hyperpars_2.df$phi_county_x <- fitted_model$marginals.hyperpar$`Phi for county`[, 1]
-  hyperpars_2.df$phi_county_y <- fitted_model$marginals.hyperpar$`Phi for county`[, 2]
-  
- 
-  
-  #Set the theme to black-white for all ggplots
-  theme_set(theme_bw())
-  
-  var_year <- ggplot(hyperpars.df, aes(x = var_year_x, y = var_year_y)) + 
-    geom_line() + 
-    xlab(expression(sigma^2)) + ylab(expression(f(sigma^2))) + 
-    ggtitle("Posterior Density of Temporal Variance") 
-  
-  phi_year <- ggplot(hyperpars_2.df, aes(x = phi_year_x, y = phi_year_y)) + 
-    geom_line() + 
-    xlab(expression(phi)) + ylab(expression(f(phi))) + 
-    ggtitle("Posterior Density of Temporal Mixing Parameter")
-  
-  
-  var_county <- ggplot(hyperpars.df, aes(x = variance_county_x, y = variance_county_y)) + 
-    geom_line() + 
-    xlab(expression(sigma^2)) + ylab(expression(f(sigma^2))) + 
-    ggtitle("Posterior Density of Spatial Variance") 
-  
-  phi_county <- ggplot(hyperpars_2.df, aes(x = phi_county_x, y = phi_county_y)) + 
-    geom_line() + 
-    xlab(expression(phi)) + ylab(expression(f(phi))) + 
-    ggtitle("Posterior Density of Spatial Mixing Parameter")
-  
-  ggarrange(var_year, phi_year,
-            var_county, phi_county,
-            ncol = 2, nrow = 2)
-  
-}
-
-
-
-
-
-#Plot posterior intercept
-plot_intercept <- function(fitted_model){
-  #Function that plots the posterior distribution of the intercept
-  par(mfrow = c(1, 1))
-  plot(fitted_model$marginals.fixed$`(Intercept)`[, 1],
-       fitted_model$marginals.fixed$`(Intercept)`[, 2],
-       xlab = "", ylab = "", type = "l", lwd = 2.5, 
-       main = "Posterior density of Intercept")
-  
-}
-
-#Plot posterior precision's
-plot_precisions_random_effects <- function(fitted_model){
-  par(mfrow = c(2, 2))
-  #Plot precision of iid temporal effect
-  plot(fitted_model$marginals.hyperpar$`Precision for year (iid component)`[, 1],
-       fitted_model$marginals.hyperpar$`Precision for year (iid component)`[, 2],
-       type = "l", xlab = "", ylab = "", main = "Precision of iid temporal effect")
-  #Plot precision of structured temporal effect
-  plot(fitted_model$marginals.hyperpar$`Precision for year (spatial component)`[, 1],
-       fitted_model$marginals.hyperpar$`Precision for year (spatial component)`[, 2],
-       type = "l", xlab = "", ylab = "", main = "Precision of structured temporal effect")
-  #Plot precision of iid spatial effect
-  plot(fitted_model$marginals.hyperpar$`Precision for county (iid component)`[, 1],
-       fitted_model$marginals.hyperpar$`Precision for county (iid component)`[, 2],
-       type = "l", xlab = "", ylab = "", main = "Precision of iid spatial effect")
-  #Plot precision of structured spatial effect
-  plot(fitted_model$marginals.hyperpar$`Precision for county (spatial component)`[, 1],
-       fitted_model$marginals.hyperpar$`Precision for county (spatial component)`[, 2],
-       type = "l", xlab = "", ylab = "", main = "Precision of structured spatial effect")
-}
-
-
-#Plot the temporal effect
-plot_temporal_effect <- function(fitted_model, T){
-  par(mfrow = c(1, 1))
-  matplot(fitted_model$summary.random$year[(T + 1):(2 * T), 4:6],
-          lty=c(2,1,2), type="l", col=1,
-          xlab = "year", ylab = "Temporal random effect")
-}
-
-#Plot the spatial effect as a heatmap
-plot_spatial_effect <- function(map, fitted_model, n){
-  scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
-  scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
-  
-  spatial_structured_effect_mean <- fitted_model$summary.random$county$mean[(n+1):(2*n)]
-  spatial_structured_effect_sd <- fitted_model$summary.random$county$sd[(n+1):(2*n)]
-  temp_ohio_map <- map[ ,c("geometry", "NAME")]
-  temp_ohio_map$mean <- spatial_structured_effect_mean
-  temp_ohio_map$sd <- spatial_structured_effect_sd
-  
-  p_1 <- ggplot(data = temp_ohio_map) + 
-    geom_sf(aes(fill = mean), 
-            alpha = 1,
-            color="black") + ggtitle("Mean Spatial Structured Effect each County") +
-    theme(plot.title = element_text(size = 12),
-          axis.title.x = element_blank(), #Remove axis and background grid
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          panel.background = element_blank(),
-          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
-          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-          panel.spacing = unit(1, 'lines')) +
-    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
-    binned_scale( #Scaling the color
-      aesthetics = "fill",
-      scale_name = "gradientn",
-      palette = function(x) c(scale_1),
-      labels = function(x){x},
-      guide = "colorscale")
-  
-  p_2 <- ggplot(data = temp_ohio_map) + 
-    geom_sf(aes(fill = sd), 
-            alpha = 1,
-            color="black") + ggtitle("Std deviation of spatial effect for each county") +
+            color="black") + ggtitle("Standard deviation of Structured Spatial Effect\n for each county") +
     theme(plot.title = element_text(size = 12),
           axis.title.x = element_blank(), #Remove axis and background grid
           axis.text = element_blank(),
@@ -337,85 +198,386 @@ plot_spatial_effect <- function(map, fitted_model, n){
 }
 
 
+#Plot posterior hyperparameters of temporal and random effects
+plot_temporal_spatial_hyperparameters <- function(fitted_RW1, fitted_RW2){
+  #inla.tmarginal to transform from precision to standard deviation
+  std_year_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
+                                 fitted_RW1$marginals.hyperpar$`Precision for year`)
+  
+  std_year_RW2 <- inla.tmarginal(function(x) sqrt(1/x),
+                                 fitted_RW2$marginals.hyperpar$`Precision for year`)
+  
+  std_county_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
+                                   fitted_RW1$marginals.hyperpar$`Precision for county`)
+  
+  std_county_RW2 <- inla.tmarginal(function(x) sqrt(1/x),
+                                   fitted_RW2$marginals.hyperpar$`Precision for county`)
+  
+  
+  #Format for ggplot
+  std_temporal_df <- data.frame(x_axis = c(std_year_RW1[, 1], std_year_RW2[, 1]),
+                                y_axis = c(std_year_RW1[, 2], std_year_RW2[, 2]),
+                                type = c(rep("RW1", length(std_year_RW1[, 1])),
+                                         rep("RW2", length(std_year_RW2[, 1]))))
+  
+  
+  phi_temporal_df <- data.frame(x_axis = c(fitted_RW1$marginals.hyperpar$`Phi for year`[, 1],
+                                           fitted_RW2$marginals.hyperpar$`Phi for year`[, 1]),
+                                y_axis = c(fitted_RW1$marginals.hyperpar$`Phi for year`[, 2],
+                                           fitted_RW2$marginals.hyperpar$`Phi for year`[, 2]),
+                                type = c(rep("RW1", 
+                                             length(fitted_RW1$marginals.hyperpar$`Phi for year`[, 1])),
+                                         rep("RW2", 
+                                             length(fitted_RW2$marginals.hyperpar$`Phi for year`[, 1])))
+  )
+  
+  
+  std_spatial_df <- data.frame(x_axis = c(std_county_RW1[, 1], std_county_RW2[, 1]),
+                                y_axis = c(std_county_RW1[, 2], std_county_RW2[, 2]),
+                                type = c(rep("RW1", length(std_county_RW1[, 1])),
+                                         rep("RW2", length(std_county_RW2[, 1]))))
+  
+  phi_spatial_df <- data.frame(x_axis = c(fitted_RW1$marginals.hyperpar$`Phi for county`[, 1],
+                                           fitted_RW2$marginals.hyperpar$`Phi for county`[, 1]),
+                                y_axis = c(fitted_RW1$marginals.hyperpar$`Phi for county`[, 2],
+                                           fitted_RW2$marginals.hyperpar$`Phi for county`[, 2]),
+                                type = c(rep("RW1", 
+                                             length(fitted_RW1$marginals.hyperpar$`Phi for county`[, 1])),
+                                         rep("RW2", 
+                                             length(fitted_RW2$marginals.hyperpar$`Phi for county`[, 1])))
+  )
 
-#Plot precision of interaction
-plot_prec_interactions <- function(fitted_model, title){
-  par(mfrow = c(1, 1))
-  plot(fitted_model$marginals.hyperpar$`Precision for space.time`[, 1],
-       fitted_model$marginals.hyperpar$`Precision for space.time`[, 2],
-       type = "l", xlab = "", ylab = "", lwd = 2.5,
-       main = title)
+  
+  # With transparency (right)
+  std_temporal_plot <- ggplot(data=std_temporal_df,
+                              aes(x=x_axis, group=type, fill=type)) +
+    geom_density(adjust=1.5, alpha=.4) +
+    theme_bw() +
+    labs(fill = NULL) +
+    xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
+    ggtitle("Posterior Density of Standard deviation\n of Temporal Random Effects") 
+  
+  phi_temporal_plot <- ggplot(data=phi_temporal_df,
+                              aes(x=x_axis, group=type, fill=type)) +
+    geom_density(adjust=1.5, alpha=.4) +
+    theme_bw() +
+    labs(fill = NULL) +
+    xlab(expression(phi)) + ylab(expression(f(phi))) + 
+    ggtitle("Posterior Density of Temporal Mixing Parameter") 
+  
+  std_spatial_plot <- ggplot(data=std_spatial_df,
+                              aes(x=x_axis, group=type, fill=type)) +
+    geom_density(adjust=1.5, alpha=.4) +
+    theme_bw() +
+    labs(fill = NULL) +
+    xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
+    ggtitle("Posterior Density of Standard deviation\n of Spatial Random Effects")
+  
+  phi_spatial_plot <- ggplot(data=phi_spatial_df,
+                              aes(x=x_axis, group=type, fill=type)) +
+    geom_density(adjust=1.5, alpha=.4) +
+    theme_bw() +
+    labs(fill = NULL) +
+    xlab(expression(phi)) + ylab(expression(f(phi))) + 
+    ggtitle("Posterior Density of Spatial Mixing Parameter") 
+  
+  
+  ggarrange(std_temporal_plot, phi_temporal_plot,
+            std_spatial_plot, phi_spatial_plot,
+            common.legend = T, legend = "right")
+  
+  
 }
+
+
 
 #Plot the interactions
-plot_interaction <- function(fitted_model){
-  matplot(fitted_model$summary.random$space.time[ , 4:6],
+plot_interaction <- function(typeI, typeII, typeIII, typeIV){
+  par(mfrow = c(2, 2))
+  matplot(typeI$summary.random$space.time[ , 4:6],
           lty=c(2,1,2), type="l", col=1,
-          xlab = "Datum ID", ylab = "Interaction effect")
+          xlab = "Datum ID", ylab = "Type I Interaction effect")
+  
+  matplot(typeII$summary.random$space.time[ , 4:6],
+          lty=c(2,1,2), type="l", col=1,
+          xlab = "Datum ID", ylab = "Type II Interaction effect")
+  
+  matplot(typeIII$summary.random$space.time[ , 4:6],
+          lty=c(2,1,2), type="l", col=1,
+          xlab = "Datum ID", ylab = "Type III Interaction effect")
+  
+  matplot(typeIV$summary.random$space.time[ , 4:6],
+          lty=c(2,1,2), type="l", col=1,
+          xlab = "Datum ID", ylab = "Type IV Interaction effect")
 }
+
+
+
+#Plot precision of interaction RW1
+plot_std_interactions_RW1 <- function(typeI,
+                                  typeII, 
+                                  typeIII, 
+                                  typeIV,
+                                  title){
+  
+  #Transform from precision to standard deviation
+  std_I <- inla.tmarginal(function(x) sqrt(1/x),
+                          typeI$marginals.hyperpar$`Precision for space.time`)
+  
+  std_II <- inla.tmarginal(function(x) sqrt(1/x),
+                          typeII$marginals.hyperpar$`Precision for space.time`)
+  
+  std_III <- inla.tmarginal(function(x) sqrt(1/x),
+                          typeIII$marginals.hyperpar$`Precision for space.time`)
+  
+  std_IV <- inla.tmarginal(function(x) sqrt(1/x),
+                          typeIV$marginals.hyperpar$`Precision for space.time`)
+  
+  
+  #Format for ggplot
+  std_df <- data.frame(x_axis = c(std_I[, 1], std_II[, 1], std_III[, 1], std_IV[, 1]),
+                       y_axis = c(std_I[, 2], std_II[, 2], std_III[, 2], std_IV[, 2]),
+                       type = c(rep("Type I", length(std_I[, 1])),
+                                rep("Type II", length(std_II[, 1])),
+                                rep("Type III", length(std_III[, 1])),
+                                rep("Type IV", length(std_IV[, 1]))))
+  
+  #Plot
+  ggplot(data=std_df,
+         aes(x=x_axis, group=type, fill=type)) +
+    geom_density(adjust=1.5, alpha=.4) +
+    theme_bw() +
+    xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
+    ggtitle("Posterior Density of Standard deviation\n of Interaction")
+}
+
+#Plot precision of interaction
+plot_std_interactions_RW2 <- function(typeI,
+                                      typeII, 
+                                      typeIII, 
+                                      typeIV,
+                                      title){
+  
+  #Transform from precision to standard deviation
+  std_I <- inla.tmarginal(function(x) sqrt(1/x),
+                          typeI$marginals.hyperpar$`Precision for space.time`)
+  
+  std_II <- inla.tmarginal(function(x) sqrt(1/x),
+                           typeII$marginals.hyperpar$`Precision for space.time`)
+  
+  std_III <- inla.tmarginal(function(x) sqrt(1/x),
+                            typeIII$marginals.hyperpar$`Precision for space.time`)
+  
+  std_IV <- inla.tmarginal(function(x) sqrt(1/x),
+                           typeIV$marginals.hyperpar$`Precision for space.time`)
+  
+  
+  #Format for ggplot
+  std_df_I_III <- data.frame(x_axis = c(std_I[, 1], std_III[, 1]),
+                             y_axis = c(std_I[, 2], std_III[, 2]),
+                             type = c(rep("Type I", length(std_I[, 1])),
+                                      rep("Type III", length(std_III[, 1]))))
+  
+  std_df_II_IV <- data.frame(x_axis = c(std_II[, 1], std_IV[, 1]),
+                             y_axis = c(std_II[, 2], std_IV[, 2]),
+                             type = c(rep("Type II", length(std_II[, 1])),
+                                      rep("Type IV", length(std_IV[, 1]))))
+  
+  #Plot
+  I_III <- ggplot(data=std_df_I_III,
+                  aes(x=x_axis, group=type, fill=type)) +
+                  geom_density(adjust=1.5, alpha=.4) +
+                  theme_bw() +
+                  xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
+                ggtitle("Posterior Density of Standard deviation\n of Interaction")
+  
+  II_IV <- ggplot(data=std_df_II_IV,
+                  aes(x=x_axis, group=type, fill=type)) +
+    geom_density(adjust=1.5, alpha=.4) +
+    theme_bw() +
+    xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
+    ggtitle("Posterior Density of Standard deviation\n of Interaction")
+  
+  ggarrange(I_III, II_IV, ncol = 2, nrow = 1, common.legend = FALSE)
+  
+}
+
+
 
 
 #Plot fitted values against actual values (all together)
-plot_fitted_vs_actual_together <- function(actual_data, fitted_model){
-  par(mfrow = c(1, 1))
-  plot(actual_data$rate,
-       xlab = "Datum ID", ylab = "Fitted value") + 
-    lines(fitted_model$summary.fitted.values[4],
-          lty = 1, type = "l", 
-          col = 1)
+plot_fitted_vs_actual_together <- function(actual_data,
+                                           base_model,
+                                           typeII_model,
+                                           n, T){
+  
+  #Format for ggplot
+  fitted.df <- data.frame(lower_quant = typeII_model$summary.fitted.values$'0.025quant',
+                          upper_quant = typeII_model$summary.fitted.values$'0.975quant',
+                          x_axis = 1:(n*T),
+                          actual = actual_data$rate)
+  
+  base.df <- data.frame(lower_quant = base_model$summary.fitted.values$'0.025quant',
+                          upper_quant = base_model$summary.fitted.values$'0.975quant',
+                          x_axis = 1:(n*T),
+                          actual = actual_data$rate)
+  
+  
+  II <- ggplot(data = fitted.df) + 
+    geom_ribbon(data = fitted.df, 
+                aes(x = x_axis,
+                    ymin = lower_quant,
+                    ymax = upper_quant, col = "95% CI"),
+                fill = "black",
+                alpha = 0.2) +
+    geom_point(aes(x = x_axis, y = actual, col = "True values")) + 
+    xlab("Datum ID") +ylab("Relative Risk") + 
+    ggtitle("Model with type II interaction\n Fitted Relative Risk against True Rate") +
+    theme_bw()
+  
+  base <- ggplot(data = base.df) + 
+    geom_ribbon(aes(x = x_axis, 
+                    ymin = lower_quant,
+                    ymax = upper_quant, 
+                    col = "95% CI"),
+                fill = "black") +
+    geom_point(aes(x = x_axis, y = actual, col = "True values")) + 
+    xlab("Datum ID") +ylab("Relative Risk") + 
+    ggtitle("Model without interactions\n Fitted Relative Risk against True Rate") +
+    theme_bw()
+  
+  ggarrange(base, II, ncol = 2, common.legend = TRUE, legend = "right")
+  
 }
+
+
 
 #Plot a time series for every county showing fitted values vs actual values
-every_county_time_series <- function(fitted_model, n, T){
-  #model_fitted: a model that is fitted, from which fitted values can be extracted
-  #Plots a time
-  par(mfrow=c(3,3))
-  for(i in 1:n){
-    plot(ohio_df$rate[seq(i,n*T,by=n)], 
-         ylab = "rate",
-         xlab = "year",
-         main = ohio_df$county_name[i])
-    matplot(fitted_model$summary.fitted.values[seq(i,n*T,by=n),3:5],
-            col=1, lty=c(2,1,2), type="l", add=T)
-  }
+every_county_time_series <- function(fitted_model,
+                                     actual,
+                                     counties,
+                                     n, T){
+  years <- 1968:1988
+  #Format for plotting
+  
+  c = counties[1]
+  county1 <- data.frame(years = years, 
+                        true_rate = actual$rate[seq(c, n*T, by = n)],
+                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
+                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
+                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  
+  c = counties[2]
+  county2 <- data.frame(years = years, 
+                        true_rate = actual$rate[seq(c, n*T, by = n)],
+                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
+                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
+                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  
+  c = counties[3]
+  county3 <- data.frame(years = years, 
+                        true_rate = actual$rate[seq(c, n*T, by = n)],
+                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
+                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
+                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  
+  c = counties[4]
+  county4 <- data.frame(years = years, 
+                        true_rate = actual$rate[seq(c, n*T, by = n)],
+                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
+                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
+                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  
+  c = counties[5]
+  county5 <- data.frame(years = years, 
+                        true_rate = actual$rate[seq(c, n*T, by = n)],
+                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
+                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
+                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  
+  c = counties[6]
+  county6 <- data.frame(years = years, 
+                        true_rate = actual$rate[seq(c, n*T, by = n)],
+                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
+                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
+                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  
+ 
+  
+  plt1 <- ggplot(data = county1, aes(x = years)) + 
+    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                fill = "pink", alpha = 0.6) +
+    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[1], ]$name) +
+    labs(col = NULL) +
+    theme_bw()
+  
+  plt2 <- ggplot(data = county2, aes(x = years)) + 
+    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                fill = "pink", alpha = 0.6) +
+    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[2], ]$name) +
+    labs(col = NULL) +
+    theme_bw()
+  
+  plt3 <- ggplot(data = county3, aes(x = years)) + 
+    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                fill = "pink", alpha = 0.6) +
+    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[3], ]$name) +
+    labs(col = NULL) +
+    theme_bw()
+  
+  plt4 <- ggplot(data = county4, aes(x = years)) + 
+    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                fill = "pink", alpha = 0.6) +
+    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[4], ]$name) +
+    labs(col = NULL) +
+    theme_bw()
+  
+  plt5 <- ggplot(data = county5, aes(x = years)) + 
+    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                fill = "pink", alpha = 0.6) +
+    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[5], ]$name) +
+    labs(col = NULL) +
+    theme_bw()
+  
+  plt6 <- ggplot(data = county6, aes(x = years)) + 
+    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                fill = "pink", alpha = 0.6) +
+    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[6], ]$name) +
+    labs(col = NULL) +
+    theme_bw()
+  
+  ggarrange(plt1, plt2, plt3,
+            plt4, plt5, plt6,
+            ncol = 2, nrow = 3,
+            common.legend = TRUE,
+            legend = "right")
+  
 }
-
-
-
 
 
 
 
 #Plot heatmap for 1 year
-case_count_plot_1_year <- function(sf_data, year, hardcoded_bins = NULL){
+case_count_plot_1_year <- function(sf_data, 
+                                   year,
+                                   hardcoded_bins){
   scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
   scale = scale_col[c(3,10,13,18,21,24,27,30)] #Select color scale to be more red
   #scale = heat.colors(8, rev= TRUE)
   
-  if(is.null(hardcoded_bins)){
-    p <- ggplot(data = sf_data[sf_data$year == year, ]) + 
-      geom_sf(aes(fill = rate), #Plots death rate
-              alpha = 1,
-              color="black") + 
-      ggtitle(year) +
-      theme(plot.title = element_text(size = 5),
-            axis.title.x = element_blank(), #Remove axis and background grid
-            axis.text = element_blank(),
-            axis.ticks = element_blank(),
-            panel.background = element_blank(),
-            plot.margin =  unit(c(0, 0, 0, 0), "inches"),
-            legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-            legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-            panel.spacing = unit(1, 'lines')) +
-      guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
-      binned_scale( #Scaling the color
-        aesthetics = "fill",
-        scale_name = "gradientn",
-        palette = function(x) c(scale),
-        labels = function(x){x},
-        guide = "colorscale")
-  } else{
-    p <- ggplot(data = sf_data[sf_data$year == year, ]) + 
+  p <- ggplot(data = sf_data[sf_data$year == year, ]) + 
       geom_sf(aes(fill = rate), #Plots death rate
               alpha = 1,
               color="black") + 
@@ -438,50 +600,21 @@ case_count_plot_1_year <- function(sf_data, year, hardcoded_bins = NULL){
         breaks = hardcoded_bins,
         limits = c(0, 100),
         guide = "colorscale")
-  }
+  
+  
   return(p)
 }
 
 
-#Plot heatmap for all years
-plot_all_years <- function(sf_data){
-  #Hardcoded due to ggplot 
-  plots = c()
-  plots[1] <- case_count_plot_1_year(sf_data, 1)
-  plots[2] <- case_count_plot_1_year(sf_data, 2)
-  plots[3] <- case_count_plot_1_year(sf_data, 3)
-  plots[4] <- case_count_plot_1_year(sf_data, 4)
-  plots[5] <- case_count_plot_1_year(sf_data, 5)
-  plots[6] <- case_count_plot_1_year(sf_data, 6)
-  plots[7] <- case_count_plot_1_year(sf_data, 7)
-  plots[8] <- case_count_plot_1_year(sf_data, 8)
-  plots[9] <- case_count_plot_1_year(sf_data, 9)
-  plots[10] <- case_count_plot_1_year(sf_data, 10)
-  plots[11] <- case_count_plot_1_year(sf_data, 11)
-  plots[12] <- case_count_plot_1_year(sf_data, 12)
-  plots[13] <- case_count_plot_1_year(sf_data, 13)
-  plots[14] <- case_count_plot_1_year(sf_data, 14)
-  plots[15] <- case_count_plot_1_year(sf_data, 15)
-  plots[16] <- case_count_plot_1_year(sf_data, 16)
-  plots[17] <- case_count_plot_1_year(sf_data, 17)
-  plots[18] <- case_count_plot_1_year(sf_data, 18)
-  plots[19] <- case_count_plot_1_year(sf_data, 19)
-  plots[20] <- case_count_plot_1_year(sf_data, 20)
-  plots[21] <- case_count_plot_1_year(sf_data, 21)
+
+
+
+
+
+violin_plot_rate <- function(){
   
   
-  #ggarrange(plt1, void_plot, plt2, void_plot, plt3, void_plot, plt4,
-  #          plt5, void_plot, plt6, void_plot, plt7, void_plot, plt8,
-  #          plt9, void_plot, plt10, void_plot, plt11, void_plot, plt12,
-  #          plt13, void_plot, plt14, void_plot, plt15, void_plot, plt16,
-  #          plt17, void_plot, plt18, void_plot, plt19, void_plot, plt20,
-  #          plt21,
-  #             ncol = ncol, nrow = nrow, common.legend = TRUE, legend = "right")
-  return(plots)
 }
-
-### Model choice and summary functions
-
 
 
 
