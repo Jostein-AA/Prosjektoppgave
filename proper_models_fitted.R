@@ -22,199 +22,124 @@ ohio_map <- ohio_map[order(ohio_map$NAME), ]
 n <- length(unique(ohio_df$county))   # Number of areas
 T <- length(unique(ohio_df$year))     # Number of time points
 
+#Firstly, switch ordering from year over county, to county over year
+ohio_df = ohio_df[order(ohio_df$county, decreasing = F), ] #This is done for the sake of the space time interaction
+ohio_df$space.time <- 1:(n *T); rownames(ohio_df) <- 1:nrow(ohio_df) #in this modell
+ohio_df$county.copy <- ohio_df$county
+ohio_df$year.copy <- ohio_df$year
 
-#Make precision matrix for AR(1)
-a = 0.99 #Close to 1, but will still result in proper distributions
-ar1_prec = diag(1+a**2, nrow = T)
-ar1_prec[1, 1] = 1; ar1_prec[T, T] = 1
-ar1_prec[1, 2] = -a; ar1_prec[T, T - 1] = -a
-for(i in 2:(T-1)){
-  ar1_prec[i, i + 1] = -a; ar1_prec[i, i - 1] = -a
-}
-ar1_prec = Matrix(ar1_prec, sparse = TRUE) #Make it sparse
-
-#Make precision matrix for CAR (We will have same as ICAR but ensure that it is Diagonal Dominant)
+#Make precision matrix for spatial Besag
 nb <- spdep::poly2nb(ohio_map, queen = FALSE)
 matrix4inla <- nb2mat(nb, style="B")
-mydiag = rowSums(matrix4inla) + 0.5
+mydiag = rowSums(matrix4inla)
 matrix4inla <- -matrix4inla
 diag(matrix4inla) <- mydiag
-CAR_prec <- Matrix(matrix4inla, sparse = TRUE) #Make it sparse
+Besag_prec <- Matrix(matrix4inla, sparse = TRUE) #Make it sparse
+
+#Define hyperparameters and corresponding priors
+ar1_hyper = list(prec = list(prior = 'pc.prec', 
+                             param = c(1, 0.01)), #Magic numbers
+                 rho = list(prior = 'normal', 
+                            param = c(0, 0.25)), #Magic numbers
+                 mean = list(prior = 'normal',
+                             param = c(0, 2.5))) #Magic numbers
 
 
-#Specify hyperparameters with corresponding priors
-#Temporal hyperparameters (Precision of iid and precision of RW1) w. corresponding priors: penalized constraint 
-temporal_hyper = list(prec = list(prior = 'pc.prec', 
-                                  param = c(1, 0.01)), #Magic numbers
-                      phi = list(prior = 'pc', 
-                                 param = c(0.5, 0.5)) #Magic numbers
-) 
-
-#Spatial hyperparameters (Precision of iid and precision of ICAR) w. corresponding priors: penalized constraint
+#Spatial hyperparameters 
 spatial_hyper = list(prec= list(prior = 'pc.prec', 
                                 param = c(1, 0.01)), #Magic numbers
-                     phi = list(prior = 'pc', 
-                                param = c(0.5, 0.5)) #Magic numbers
-)
-#Interaction hyperparameter and prior (Precision of interaction)
-interaction_hyper = list(theta=list(prior="pc.prec",
-                                    param=c(1,0.01)))
+                     lambda = list(prior = 'gaussian', 
+                                   param = c(0, 1))) #Magic numbers
 
 
+#Define the most basic proper formula (no space-time interaction, but proper effects)
+proper_formula <- deaths ~ 1 + year + 
+                           f(year.copy, 
+                             model = "ar1",
+                             hyper = ar1_hyper) +
+                           f(county, 
+                             model = "besagproper2",
+                             graph = Besag_prec,
+                             group = year, 
+                             control.group = list(model = "ar1"))
 
-#Make base formula
-#Make the base formula
-#base_formula <- deaths ~ 1 + year +
-#                             f(year, 
-#                               model = 'bym2',
-#                               scale.model = T, 
-#                               constr = F, 
-#                               rankdef = 0,
-#                               graph = ar1_prec,
-#                               hyper = temporal_hyper) + 
-#                             f(county, 
-#                               model = 'bym2',
-#                               scale.model = T,
-#                               constr = F,
-#                               rankdef = 0,
-#                               graph = CAR_prec,
-#                               hyper = spatial_hyper)
-
-
-base_formula <- deaths ~ 1 + f(year, model = "ar1") +
-                             f(county, model = "besagproper2")
-
-###
-
-#Fit the base formula 
 ptm <- Sys.time()
-ar1_CAR_fit <- inla(base_formula, data = ohio_df, family = "poisson",
+proper_fit <- inla(proper_formula, 
+                   data = ohio_df,
+                   family = "poisson",
+                   E = pop_at_risk, 
+                   control.compute = list(config = TRUE, # To see constraints later
+                                          cpo = T,   # For model selection
+                                          waic = T)) # For model selection
+
+time_proper = Sys.time()-ptm
+print(c("Basic model fitted in: ", time_proper))
+print(mean(-log(proper_fit$cpo$cpo)))
+
+
+
+#Define proper formula using only fixed temporal effect and spatio-temporal interaction
+proper_formula_2 <- deaths ~ 1 + year + #year is fixed temporal effect
+                              f(county, 
+                                model = "besagproper2",
+                                graph = Besag_prec,
+                                group = year, 
+                                control.group = list(model = "ar1"))
+
+
+
+ptm <- Sys.time()
+proper_fit_2 <- inla(proper_formula_2, 
+                   data = ohio_df,
+                   family = "poisson",
+                   E = pop_at_risk, 
+                   control.compute = list(config = TRUE, # To see constraints later
+                                          cpo = T,   # For model selection
+                                          waic = T)) # For model selection
+
+time_proper_2 = Sys.time()-ptm
+print(c("Basic model fitted in: ", time_proper_2))
+print(mean(-log(proper_fit_2$cpo$cpo)))
+
+#Define model having fixed temporal effect, 
+#random spatial and temporal effects and spatio-temporal interactions all proper
+proper_formula_3 <- deaths ~ 1 + year +
+                          f(year.copy, #f(year) is temporal random effect (AR(1))
+                             model = "ar1",
+                             hyper = ar1_hyper) +
+                          f(county, 
+                            model = "besagproper2", #f(county) is spatial random effect (besagproper)
+                            graph = Besag_prec,
+                            hyper = spatial_hyper) +
+                          f(county.copy,    #f(county.copy, group = year) is spatio-temporal interaction
+                            model = "besagproper2",
+                            graph = Besag_prec,
+                            group = year, 
+                            control.group = list(model = "ar1"))
+  
+
+ptm <- Sys.time()
+proper_fit_3 <- inla(proper_formula_3, 
+                     data = ohio_df,
+                     family = "poisson",
                      E = pop_at_risk, 
                      control.compute = list(config = TRUE, # To see constraints later
                                             cpo = T,   # For model selection
                                             waic = T)) # For model selection
 
-time_AR1_CAR = Sys.time()-ptm
-print(c("Basic model fitted in: ", time_AR1_CAR))
+time_proper_3 = Sys.time()-ptm
+print(c("Basic model fitted in: ", time_proper_3))
+print(mean(-log(proper_fit_3$cpo$cpo)))
 
-###
-
-#Update base formula to also contain iid interaction
-typeI_formula <- update(base_formula,  ~. + f(space.time,
-                                              model="iid", #Has to be iid, whole point
-                                              hyper = interaction_hyper ))
-
-ptm <- Sys.time()
-RW1_ICAR_I_fit <- inla(typeI_formula, data = ohio_df, family = 'poisson',
-                       E = pop_at_risk, control.compute = list(config = TRUE, 
-                                                               cpo = TRUE,    
-                                                               waic = TRUE))
-time_RW1_ICAR_I = Sys.time() - ptm
-print(c("Type I model fitted in: ", time_RW1_ICAR_I))
-
-
-###
-
-#Type II
-
-#Get sum-to-zero constraints for type II interaction
-typeII_constraints = constraints_maker(type = "II", n = n, t = T)
-
-#Scale precision matrix of RW model so the geometric mean of the marginal variances is one
-scaled_RW_prec <- inla.scale.model(RW1_prec,
-                                   list(A = matrix(1, 1, dim(RW1_prec)[1]),
-                                        e = 0))
-#Get precision matric for type II interaction by Kronecker product
-typeII_prec <- scaled_RW_prec %x% diag(n)
-
-typeII_formula <- update(base_formula, ~. + f(space.time, 
-                                              model = "generic0", 
-                                              Cmatrix = typeII_prec, 
-                                              extraconstr = typeII_constraints, 
-                                              rankdef = n, 
-                                              hyper = interaction_hyper))
-
-
-
-ptm <- Sys.time()
-RW1_ICAR_II_fit <- inla(typeII_formula, data = ohio_df, family = "poisson",
-                        E = pop_at_risk, control.compute = list(config = TRUE,
-                                                                cpo = TRUE,
-                                                                waic = TRUE))
-time_RW1_ICAR_II = Sys.time() - ptm
-print(c("Type II model fitted in: ", time_RW1_ICAR_II))
-
-
-###
-
-#Type III
-
-#Get constraints for the type III interactions
-typeIII_constraints <- constraints_maker(type = "III", n = n, t = T)
-
-# get scaled ICAR
-scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_prec, 
-                                           constr = list(A = matrix(1,1,dim(ICAR_prec)[1]), e = 0))
-
-# Kronecker product between IID x ICAR
-typeIII_prec <- diag(T) %x% scaled_ICAR_prec 
-
-typeIII_formula <- update(base_formula, ~. + f(space.time, 
-                                               model = "generic0", 
-                                               Cmatrix = typeIII_prec, 
-                                               extraconstr = typeIII_constraints, 
-                                               rankdef = T, 
-                                               hyper = interaction_hyper))
-
-
-
-ptm <- Sys.time()
-RW1_ICAR_III_fit <- inla(typeIII_formula, data = ohio_df, family = "poisson",
-                         E = pop_at_risk, control.compute = list(config = TRUE, 
-                                                                 cpo = TRUE,
-                                                                 waic = TRUE))
-
-time_RW1_ICAR_III = Sys.time() - ptm
-print(c("Type III model fitted in: ", time_RW1_ICAR_III))
-
-
-###
-
-#Type IV
-
-#Get constraints for type IV interactions
-typeIV_constraints <- constraints_maker(type = "IV", n = n, t = T)
-
-#Get type IV interaction precision matrix
-typeIV_prec <- scaled_RW_prec %x% scaled_ICAR_prec
-
-#Get formula for type IV
-typeIV_formula <- update(base_formula, ~. + f(space.time, 
-                                              model = "generic0",
-                                              Cmatrix = typeIV_prec,
-                                              extraconstr = typeIV_constraints,
-                                              rankdef = (n + T - 1), 
-                                              hyper = interaction_hyper))
-
-
-ptm <- Sys.time()
-RW1_ICAR_IV_fit <- inla(typeIV_formula, data = ohio_df, family = "poisson",
-                        E = pop_at_risk, control.compute = list(config = TRUE, 
-                                                                cpo = TRUE,
-                                                                waic = TRUE))
-time_RW1_ICAR_IV = Sys.time() - ptm
-print(c("Type IV model fitted in: ", time_RW1_ICAR_IV))
 
 
 
 #Save INLA objects
-save(n, T, ohio_map, ohio_df,
-     RW1_ICAR_fit, time_RW1_ICAR,
-     RW1_ICAR_I_fit, time_RW1_ICAR_I,
-     RW1_ICAR_II_fit, time_RW1_ICAR_II,
-     RW1_ICAR_III_fit, time_RW1_ICAR_III,
-     RW1_ICAR_IV_fit, time_RW1_ICAR_IV,
-     file = "improper_RW1_ICAR_fitted.RData")
+save(n, T, ohio_map, ohio_df_changed,
+     proper_fit, time_proper, 
+     proper_fit_2, time_proper_2,
+     proper_fit_3, time_proper_3,
+     file = "proper_fitted.RData")
 
 
 

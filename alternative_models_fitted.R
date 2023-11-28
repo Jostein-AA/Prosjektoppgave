@@ -71,7 +71,8 @@ spatial_hyper = list(prec= list(prior = 'pc.prec',
                                 param = c(0.5, 0.5)) #Magic numbers
 )
 
-
+#This formulation is third best model, not needing any constraints (except random effects).
+#Analouge type IV interaction though! Not really what I want in the same way as what has been done
 alternate_formula <- deaths ~ 1 + f(year, 
                                     model = 'bym2',
                                     scale.model = T, 
