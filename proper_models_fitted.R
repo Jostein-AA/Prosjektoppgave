@@ -9,7 +9,7 @@ library(spdep)
 
 #Load utility functions
 #source("utilities.R")
-
+#####
 #Load data
 ohio_df <- read.csv("ohio_df.csv")
 ohio_df$year <- ohio_df$year - min(ohio_df$year) + 1
@@ -36,6 +36,7 @@ matrix4inla <- -matrix4inla
 diag(matrix4inla) <- mydiag
 Besag_prec <- Matrix(matrix4inla, sparse = TRUE) #Make it sparse
 
+#####
 #Define hyperparameters and corresponding priors
 ar1_hyper = list(prec = list(prior = 'pc.prec', 
                              param = c(1, 0.01)), #Magic numbers
@@ -51,7 +52,7 @@ spatial_hyper = list(prec= list(prior = 'pc.prec',
                      lambda = list(prior = 'gaussian', 
                                    param = c(0, 1))) #Magic numbers
 
-
+#####
 #Define the most basic proper formula (no space-time interaction, but proper effects)
 proper_formula <- deaths ~ 1 + year + 
                            f(year.copy, 
@@ -77,7 +78,7 @@ print(c("Basic model fitted in: ", time_proper))
 print(mean(-log(proper_fit$cpo$cpo)))
 
 
-
+#####
 #Define proper formula using only fixed temporal effect and spatio-temporal interaction
 proper_formula_2 <- deaths ~ 1 + year + #year is fixed temporal effect
                               f(county, 
@@ -101,6 +102,8 @@ time_proper_2 = Sys.time()-ptm
 print(c("Basic model fitted in: ", time_proper_2))
 print(mean(-log(proper_fit_2$cpo$cpo)))
 
+
+#####
 #Define model having fixed temporal effect, 
 #random spatial and temporal effects and spatio-temporal interactions all proper
 proper_formula_3 <- deaths ~ 1 + year +
@@ -131,10 +134,9 @@ time_proper_3 = Sys.time()-ptm
 print(c("Basic model fitted in: ", time_proper_3))
 print(mean(-log(proper_fit_3$cpo$cpo)))
 
-
-
-
+#####
 #Save INLA objects
+ohio_df_changed = ohio_df
 save(n, T, ohio_map, ohio_df_changed,
      proper_fit, time_proper, 
      proper_fit_2, time_proper_2,
