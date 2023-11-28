@@ -53,7 +53,8 @@ spatial_hyper = list(prec= list(prior = 'pc.prec',
                                    param = c(0, 1))) #Magic numbers
 
 #####
-#Define the most basic proper formula (no space-time interaction, but proper effects)
+#Define the a basic proper formula 
+#(no space-time interaction, but fixed temporal effect and  proper random effects)
 proper_formula <- deaths ~ 1 + year + 
                            f(year.copy, 
                              model = "ar1",
@@ -79,7 +80,8 @@ print(mean(-log(proper_fit$cpo$cpo)))
 
 
 #####
-#Define proper formula using only fixed temporal effect and spatio-temporal interaction
+#Define proper formula using only fixed temporal effect
+# and spatio-temporal interaction
 proper_formula_2 <- deaths ~ 1 + year + #year is fixed temporal effect
                               f(county, 
                                 model = "besagproper2",
