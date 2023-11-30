@@ -276,13 +276,13 @@ proper_base_formula <- deaths ~ 1 + year +
                                   hyper = ar1_hyper) + 
                                 f(county, 
                                   model = "besagproper2",
-                                  graph = Besag_prec,
+                                  graph = ICAR_prec,
                                   hyper = spatial_hyper)
 
 proper_interaction_formula <- deaths ~ 1 + year + 
                                        f(county, 
                                          model = "besagproper2",
-                                         graph = Besag_prec,
+                                         graph = ICAR_prec,
                                          group = year, 
                                          control.group = list(model = "ar1"))
 
@@ -293,11 +293,11 @@ proper_full_formula <- deaths ~ 1 + year +
                                   hyper = ar1_hyper) +
                                 f(county, 
                                   model = "besagproper2",
-                                  graph = Besag_prec,
+                                  graph = ICAR_prec,
                                   hyper = spatial_hyper) + 
                                 f(county.copy, 
                                   model = "besagproper2",
-                                  graph = Besag_prec,
+                                  graph = ICAR_prec,
                                   group = year, 
                                   control.group = list(model = "ar1")) 
 
