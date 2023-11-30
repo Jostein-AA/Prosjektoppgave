@@ -33,6 +33,12 @@ matrix4inla <- -matrix4inla
 diag(matrix4inla) <- mydiag
 ICAR_prec <- Matrix(matrix4inla, sparse = TRUE) #Make it sparse
 
+#Function to use inla.tmarginal in lapply
+my_inla_t_marginal <- function(prediction_marginal){
+  #a function to use inla.tmarginal on several values at once
+  return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
+}
+
 # get scaled ICAR
 scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_prec, 
                                            constr = list(A = matrix(1,1,dim(ICAR_prec)[1]), e = 0))
@@ -59,16 +65,9 @@ interaction_hyper = list(theta=list(prior="pc.prec",
 
 
 ####
-#For loop to sequentially predict one and one year ahead, start at year = 11, and go until end
-
-
-my_inla_t_marginal <- function(prediction_marginal){
-  #a function to use inla.tmarginal on several values at once
-  return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
-}
-
+#Improper models fitted
 ptm <- Sys.time()
-for(time in 12:21){
+for(time in 12:21){ #For loop to sequentially predict one and one year ahead, start at year = 11, and go until end
   temp_ohio = ohio_df[ohio_df$year<= time, ] #Extract data in year 1:time
   temp_ohio[temp_ohio$year == time, ]$deaths = NA
   
@@ -236,17 +235,143 @@ for(time in 12:21){
   
   print(paste("Predicted for time: ", time, "/ Time used so far: ", Sys.time() - ptm))
 }
-print(paste("Time used on predicting: ", Sys.time() - ptm))
+print(paste("Time used on predicting improper models: ", Sys.time() - ptm))
+
+
+####
+#Proper models now
+ohio_df_changed <- ohio_df
+
+#Firstly, switch ordering from year over county, to county over year
+#This is done for the sake of the space time interaction in this model
+ohio_df_changed = ohio_df_changed[order(ohio_df_changed$county, decreasing = F), ] 
+ohio_df_changed$space.time <- 1:(n *T); rownames(ohio_df_changed) <- 1:nrow(ohio_df_changed) 
+
+#Make copies of county and year.
+#It is done because both year and county is used twice in some formulas
+ohio_df_changed$county.copy <- ohio_df_changed$county
+ohio_df_changed$year.copy <- ohio_df_changed$year
+
+
+#Define hyperparameters and corresponding priors
+#Define Temporal hyperparameters and corresponding priors
+ar1_hyper = list(prec = list(prior = 'pc.prec', 
+                             param = c(1, 0.01)), #Magic numbers
+                 rho = list(prior = 'normal', 
+                            param = c(0, 0.25)), #Magic numbers
+                 mean = list(prior = 'normal',
+                             param = c(0, 2.5))) #Magic numbers
+
+
+#Define Spatial hyperparameters and corresponding priors
+spatial_hyper = list(prec= list(prior = 'pc.prec', 
+                                param = c(1, 0.01)), #Magic numbers
+                     lambda = list(prior = 'gaussian', 
+                                   param = c(0, 1))) #Magic numbers
+
+
+proper_base_formula <- deaths ~ 1 + year +
+                                f(year.copy,
+                                  model = "ar1",
+                                  hyper = ar1_hyper) + 
+                                f(county, 
+                                  model = "besagproper2",
+                                  graph = Besag_prec,
+                                  hyper = spatial_hyper)
+
+proper_interaction_formula <- deaths ~ 1 + year + 
+                                       f(county, 
+                                         model = "besagproper2",
+                                         graph = Besag_prec,
+                                         group = year, 
+                                         control.group = list(model = "ar1"))
+
+
+proper_full_formula <- deaths ~ 1 + year + 
+                                f(year.copy,
+                                  model = "ar1",
+                                  hyper = ar1_hyper) +
+                                f(county, 
+                                  model = "besagproper2",
+                                  graph = Besag_prec,
+                                  hyper = spatial_hyper) + 
+                                f(county.copy, 
+                                  model = "besagproper2",
+                                  graph = Besag_prec,
+                                  group = year, 
+                                  control.group = list(model = "ar1")) 
+
+
+
+for(time in 12:21){ #For loop to sequentially predict one and one year ahead, start at year = 11, and go until end
+  temp_ohio = ohio_df_changed[ohio_df_changed$year<= time, ] #Extract data in year 1:time
+  temp_ohio[temp_ohio$year == time, ]$deaths = NA
+  
+  proper_base <- inla(proper_base_formula,
+                      data = temp_ohio,
+                      family = "poisson",
+                      E = pop_at_risk,
+                      control.predictor = list(compute = TRUE),       #For predictions
+                      control.compute = list(config = TRUE, # To see constraints later
+                                             cpo = T,   # For model selection
+                                             waic = T,  # For model selection
+                                             return.marginals.predictor=TRUE)) #For predictions
+  
+  proper_interaction <- inla(proper_interaction_formula,
+                             data = temp_ohio,
+                             family = "poisson",
+                             E = pop_at_risk,
+                             control.predictor = list(compute = TRUE),       #For predictions
+                             control.compute = list(config = TRUE, # To see constraints later
+                                                    cpo = T,   # For model selection
+                                                    waic = T,  # For model selection
+                                                    return.marginals.predictor=TRUE)) #For predictions
+  
+  
+  proper_full <- inla(proper_full_formula,
+                      data = temp_ohio,
+                      family = "poisson",
+                      E = pop_at_risk,
+                      control.predictor = list(compute = TRUE),       #For predictions
+                      control.compute = list(config = TRUE, # To see constraints later
+                                             cpo = T,   # For model selection
+                                             waic = T,  # For model selection
+                                             return.marginals.predictor=TRUE)) #For predictions
+  
+  proper_base_marginals = proper_base$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  proper_interactions_marginals = proper_interaction$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  proper_full_marginals = proper_full$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  
+  if(time == 12){
+    proper_base_predicted = lapply(proper_base_marginals, FUN = my_inla_t_marginal)
+    proper_interaction_predicted = lapply(proper_interactions_marginals, FUN = my_inla_t_marginal)
+    proper_full_predicted = lapply(proper_full_marginals, FUN = my_inla_t_marginal)
+    
+  } else {
+    proper_base_predicted = rbind(proper_base_predicted,
+                                  lapply(proper_base_marginals, FUN = my_inla_t_marginal))
+    proper_interaction_predicted = rbind(proper_interaction_predicted,
+                                  lapply(proper_interactions_marginals, FUN = my_inla_t_marginal))
+    proper_full_predicted = rbind(proper_full_predicted,
+                                  lapply(proper_full_marginals, FUN = my_inla_t_marginal))
+  }
+  print(paste("Predicted for time: ", time, "/ Time used so far: ", Sys.time() - ptm))
+}
+print(paste("Time used on predicting proper models: ", Sys.time() - ptm))
+
 
 ####
 #Save results
 
-save(n, T, ohio_map, ohio_df,
+save(n, T, ohio_map, ohio_df, ohio_df_changed,
      base_predicted,
      I_predicted,
      II_predicted,
      III_predicted,
      IV_predicted,
+     proper_base_predicted,
+     proper_interaction_predicted,
+     proper_full_predicted,
      file = "one_step_predictions.RData")
 
 
