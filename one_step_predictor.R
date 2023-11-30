@@ -201,6 +201,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   print("IV")
   
   #Extract marginal of linear predictor predictive distribution
+  #Save the linear predictor marginals because this is what we will use for CRPS
   base_prediction_marginals = base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   I_prediction_marginals = RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   II_prediction_marginals = RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
@@ -301,6 +302,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
                                          f(county, 
                                            model = "besagproper2",
                                            graph = ICAR_prec,
+                                           hyper = spatial_hyper,
                                            group = year, 
                                            control.group = list(model = "ar1"))
   
@@ -344,6 +346,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   
   print("proper full")
   
+  #Save the linear predictor marginals because this is what we will use for CRPS
   proper_base_marginals = proper_base$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   proper_interactions_marginals = proper_interaction$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   proper_full_marginals = proper_full$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
