@@ -262,6 +262,22 @@ violin_plot_rate(rates.df)
 
 #One-step predictor ...
 
+#Function to use inla.tmarginal in lapply
+my_inla_t_marginal <- function(prediction_marginal){
+  #a function to use inla.tmarginal on several values at once
+  return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
+}
+
+
+#base_predicted = lapply(base_prediction_marginals, FUN = my_inla_t_marginal)
+#I_predicted = lapply(I_prediction_marginals, FUN = my_inla_t_marginal)
+#II_predicted = lapply(II_prediction_marginals, FUN = my_inla_t_marginal)
+#III_predicted = lapply(III_prediction_marginals, FUN = my_inla_t_marginal)
+#IV_predicted = lapply(IV_prediction_marginals, FUN = my_inla_t_marginal)
+
+
+
+
 crpsNormal <- function(x, mu = 0, sig = 1){
   ## Function to compute the CRPS under normality assumption
   ## Here: x denotes the actual observation and mu and sigma

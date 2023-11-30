@@ -33,11 +33,7 @@ matrix4inla <- -matrix4inla
 diag(matrix4inla) <- mydiag
 ICAR_prec <- Matrix(matrix4inla, sparse = TRUE) #Make it sparse
 
-#Function to use inla.tmarginal in lapply
-my_inla_t_marginal <- function(prediction_marginal){
-  #a function to use inla.tmarginal on several values at once
-  return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
-}
+
 
 # get scaled ICAR
 scaled_ICAR_prec <- INLA::inla.scale.model(ICAR_prec, 
@@ -204,33 +200,36 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   
   print("IV")
   
-  
+  #Extract marginal of linear predictor predictive distribution
   base_prediction_marginals = base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   I_prediction_marginals = RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   II_prediction_marginals = RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   III_prediction_marginals = RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   IV_prediction_marginals = RW1_ICAR_IV_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  
   if(time == 12){
-    base_predicted = lapply(base_prediction_marginals, FUN = my_inla_t_marginal)
-    I_predicted = lapply(I_prediction_marginals, FUN = my_inla_t_marginal)
-    II_predicted = lapply(II_prediction_marginals, FUN = my_inla_t_marginal)
-    III_predicted = lapply(III_prediction_marginals, FUN = my_inla_t_marginal)
-    IV_predicted = lapply(IV_prediction_marginals, FUN = my_inla_t_marginal)
+    base_predicted = base_prediction_marginals
+    I_predicted    = I_prediction_marginals
+    II_predicted   = II_prediction_marginals
+    III_predicted  = III_prediction_marginals
+    IV_predicted   = IV_prediction_marginals
+    
+    
   } else {
     base_predicted = rbind(base_predicted,
-                           lapply(base_prediction_marginals, FUN = my_inla_t_marginal))
+                           base_prediction_marginals)
     
     I_predicted = rbind(I_predicted,
-                        lapply(I_prediction_marginals, FUN = my_inla_t_marginal))
+                        I_prediction_marginals)
     
     II_predicted = rbind(II_predicted,
-                        lapply(II_prediction_marginals, FUN = my_inla_t_marginal))
+                         II_prediction_marginals)
     
     III_predicted = rbind(III_predicted,
-                         lapply(III_prediction_marginals, FUN = my_inla_t_marginal))
+                          III_prediction_marginals)
     
     IV_predicted = rbind(IV_predicted,
-                        lapply(IV_prediction_marginals, FUN = my_inla_t_marginal))
+                         IV_prediction_marginals)
   }
   
   print(paste("Predicted for time: ", time, "/ Time used so far: ", Sys.time() - ptm))
@@ -350,17 +349,17 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   proper_full_marginals = proper_full$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   
   if(time == 12){
-    proper_base_predicted = lapply(proper_base_marginals, FUN = my_inla_t_marginal)
-    proper_interaction_predicted = lapply(proper_interactions_marginals, FUN = my_inla_t_marginal)
-    proper_full_predicted = lapply(proper_full_marginals, FUN = my_inla_t_marginal)
+    proper_base_predicted        = proper_base_marginals
+    proper_interaction_predicted = proper_interactions_marginals
+    proper_full_predicted        = proper_full_marginals
     
   } else {
     proper_base_predicted = rbind(proper_base_predicted,
-                                  lapply(proper_base_marginals, FUN = my_inla_t_marginal))
+                                  proper_base_marginals)
     proper_interaction_predicted = rbind(proper_interaction_predicted,
-                                  lapply(proper_interactions_marginals, FUN = my_inla_t_marginal))
+                                         proper_interactions_marginals)
     proper_full_predicted = rbind(proper_full_predicted,
-                                  lapply(proper_full_marginals, FUN = my_inla_t_marginal))
+                                  proper_full_marginals)
   }
   print(paste("Predicted for time: ", time, "/ Time used so far: ", Sys.time() - ptm))
 }
