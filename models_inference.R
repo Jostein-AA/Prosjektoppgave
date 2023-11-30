@@ -20,9 +20,8 @@ if(getwd() != "C:/Users/joste/Documents/H2023/Code/Prosjektoppgave"){
 source("utilities.R")
 
 #Load in INLA objects
-load("improper_RW1_ICAR_fitted.RData")
-load("improper_RW2_ICAR_fitted.RData")
-
+load("improper_RW1_ICAR_fitted.RData"); load("improper_RW2_ICAR_fitted.RData")
+load(""); load("")
 
 
 
@@ -118,6 +117,8 @@ cat(latex_tabular, file = "table.tex")
 
 ################################################################################
 
+############
+##Plots of posteriors
 
 #Plot the intercept
 plot_intercept(RW1_ICAR_fit)
@@ -258,25 +259,21 @@ violin_plot_rate(rates.df)
 
 
 
-
-
-#One-step predictor ...
+############
+##One-step predictor ...
 
 #Function to use inla.tmarginal in lapply
-my_inla_t_marginal <- function(prediction_marginal){
-  #a function to use inla.tmarginal on several values at once
-  return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
-}
 
+#my_inla_t_marginal <- function(prediction_marginal){
+  #a function to use inla.tmarginal on several values at once
+#  return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
+#}
 
 #base_predicted = lapply(base_prediction_marginals, FUN = my_inla_t_marginal)
 #I_predicted = lapply(I_prediction_marginals, FUN = my_inla_t_marginal)
 #II_predicted = lapply(II_prediction_marginals, FUN = my_inla_t_marginal)
 #III_predicted = lapply(III_prediction_marginals, FUN = my_inla_t_marginal)
 #IV_predicted = lapply(IV_prediction_marginals, FUN = my_inla_t_marginal)
-
-
-
 
 crpsNormal <- function(x, mu = 0, sig = 1){
   ## Function to compute the CRPS under normality assumption
@@ -291,6 +288,27 @@ crpsNormal <- function(x, mu = 0, sig = 1){
   res <- -res
   return(res)
 }
+
+
+
+#Do NOT need inla.tmarginal() here, as we actually look directly at the linear predictor
+
+#Find mean of linear predictor from marginal
+
+#Find Standard Deviation of linear predictor from marginal
+
+
+#Calculate CRPS for each individual county at time t*: using mean and std of linear predictor
+#i.e. use crpsNormal like crpsNormal(x = log(rate), mu = mean(eta), sig = sd(eta))
+
+
+#Calculate absolute error for each individual county at time t*: using mean of linear predictor 
+
+
+
+
+
+
 
 
 
