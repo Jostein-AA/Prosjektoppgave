@@ -262,6 +262,19 @@ violin_plot_rate(rates.df)
 
 #One-step predictor ...
 
+crpsNormal <- function(x, mu = 0, sig = 1){
+  ## Function to compute the CRPS under normality assumption
+  ## Here: x denotes the actual observation and mu and sigma
+  ## mean and sd of the predictive distribution.
+  ## (see Held et al. (2010), page 1296
+  
+  x0 <- (x - mu) / sig
+  res <- sig * (1 / sqrt(pi) -  2 * dnorm(x0) - x0 * (2 * pnorm(x0) - 1))
+  
+  ## sign as in Held (2008)
+  res <- -res
+  return(res)
+}
 
 
 

@@ -270,42 +270,21 @@ spatial_hyper = list(prec= list(prior = 'pc.prec',
                                    param = c(0, 1))) #Magic numbers
 
 
-proper_base_formula <- deaths ~ 1 + year +
-                                f(year.copy,
-                                  model = "ar1",
-                                  hyper = ar1_hyper) + 
-                                f(county, 
-                                  model = "besagproper2",
-                                  graph = ICAR_prec,
-                                  hyper = spatial_hyper)
 
-proper_interaction_formula <- deaths ~ 1 + year + 
-                                       f(county, 
-                                         model = "besagproper2",
-                                         graph = ICAR_prec,
-                                         group = year, 
-                                         control.group = list(model = "ar1"))
-
-
-proper_full_formula <- deaths ~ 1 + year + 
-                                f(year.copy,
-                                  model = "ar1",
-                                  hyper = ar1_hyper) +
-                                f(county, 
-                                  model = "besagproper2",
-                                  graph = ICAR_prec,
-                                  hyper = spatial_hyper) + 
-                                f(county.copy, 
-                                  model = "besagproper2",
-                                  graph = ICAR_prec,
-                                  group = year, 
-                                  control.group = list(model = "ar1")) 
-
-
-
+ptm <- Sys.time()
 for(time in 12:21){ #For loop to sequentially predict one and one year ahead, start at year = 11, and go until end
-  temp_ohio = ohio_df_changed[ohio_df_changed$year<= time, ] #Extract data in year 1:time
-  temp_ohio[temp_ohio$year == time, ]$deaths = NA
+  temp_ohio = ohio_df_changed[ohio_df_changed$year <= time, ] #Extract data in year 1:time
+  temp_ohio[temp_ohio$year == time, ]$deaths = NA; rownames(temp_ohio) <- 1:nrow(temp_ohio)
+  
+  
+  proper_base_formula <- deaths ~ 1 + year +
+                                  f(year.copy,
+                                    model = "ar1",
+                                    hyper = ar1_hyper) + 
+                                  f(county, 
+                                    model = "besagproper2",
+                                    graph = ICAR_prec,
+                                    hyper = spatial_hyper)
   
   proper_base <- inla(proper_base_formula,
                       data = temp_ohio,
@@ -317,6 +296,15 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
                                              waic = T,  # For model selection
                                              return.marginals.predictor=TRUE)) #For predictions
   
+  print("proper base")
+  
+  proper_interaction_formula <- deaths ~ 1 + year + 
+                                         f(county, 
+                                           model = "besagproper2",
+                                           graph = ICAR_prec,
+                                           group = year, 
+                                           control.group = list(model = "ar1"))
+  
   proper_interaction <- inla(proper_interaction_formula,
                              data = temp_ohio,
                              family = "poisson",
@@ -326,6 +314,23 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
                                                     cpo = T,   # For model selection
                                                     waic = T,  # For model selection
                                                     return.marginals.predictor=TRUE)) #For predictions
+  
+  print("proper interaction")
+  
+  proper_full_formula <- deaths ~ 1 + year + 
+                                  f(year.copy,
+                                    model = "ar1",
+                                    hyper = ar1_hyper) +
+                                  f(county, 
+                                    model = "besagproper2",
+                                    graph = ICAR_prec,
+                                    hyper = spatial_hyper) + 
+                                  f(county.copy, 
+                                    model = "besagproper2",
+                                    graph = ICAR_prec,
+                                    hyper = spatial_hyper,
+                                    group = year, 
+                                    control.group = list(model = "ar1")) 
   
   
   proper_full <- inla(proper_full_formula,
@@ -337,6 +342,8 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
                                              cpo = T,   # For model selection
                                              waic = T,  # For model selection
                                              return.marginals.predictor=TRUE)) #For predictions
+  
+  print("proper full")
   
   proper_base_marginals = proper_base$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   proper_interactions_marginals = proper_interaction$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
@@ -374,6 +381,9 @@ save(n, T, ohio_map, ohio_df, ohio_df_changed,
      proper_full_predicted,
      file = "one_step_predictions.RData")
 
+
+####
+#Testing ground
 
 
 

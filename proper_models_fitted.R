@@ -121,6 +121,7 @@ proper_full_formula <- deaths ~ 1 + year +
                                 f(county.copy, 
                                   model = "besagproper2",
                                   graph = Besag_prec,
+                                  hyper = spatial_hyper,
                                   group = year, 
                                   control.group = list(model = "ar1"))                                
 
