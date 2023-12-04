@@ -7,6 +7,10 @@ library(spData)
 library(sf)
 library(spdep)
 
+if(getwd() != "C:/Users/joste/Documents/H2023/Code/Prosjektoppgave"){
+  setwd("H2023/Code/Prosjektoppgave/")
+}
+
 #Load utility functions
 source("utilities.R")
 
@@ -32,7 +36,6 @@ mydiag = rowSums(matrix4inla)
 matrix4inla <- -matrix4inla
 diag(matrix4inla) <- mydiag
 ICAR_prec <- Matrix(matrix4inla, sparse = TRUE) #Make it sparse
-
 
 
 # get scaled ICAR
@@ -256,18 +259,18 @@ ohio_df_changed$year.copy <- ohio_df_changed$year
 #Define hyperparameters and corresponding priors
 #Define Temporal hyperparameters and corresponding priors
 ar1_hyper = list(prec = list(prior = 'pc.prec', 
-                             param = c(1, 0.01)), #Magic numbers
+                             param = c(1, 0.005)), #Magic numbers
                  rho = list(prior = 'normal', 
-                            param = c(0.5, 1)), #Magic numbers, second is precision
+                            param = c(0, 1)), #Magic numbers, second is precision
                  mean = list(prior = 'normal',
-                             param = c(0, 3))) #Magic numbers
+                             param = c(0, 2))) #Magic numbers
 
 
 #Define Spatial hyperparameters and corresponding priors
 spatial_hyper = list(prec= list(prior = 'pc.prec', 
-                                param = c(1, 0.01)), #Magic numbers
+                                param = c(1, 0.005)), #Magic numbers
                      lambda = list(prior = 'gaussian', 
-                                   param = c(0.5, 1))) #Magic numbers
+                                   param = c(0, 1))) #Magic numbers
 
 
 
@@ -339,6 +342,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
                       family = "poisson",
                       E = pop_at_risk,
                       control.predictor = list(compute = TRUE),       #For predictions
+                      control.inla = list(int.strategy = "grid"),
                       control.compute = list(config = TRUE, # To see constraints later
                                              cpo = T,   # For model selection
                                              waic = T,  # For model selection
@@ -389,11 +393,11 @@ save(n, T, ohio_map, ohio_df, ohio_df_changed,
 
 #Define Temporal hyperparameters and corresponding priors
 ar1_hyper = list(prec = list(prior = 'pc.prec', 
-                             param = c(1, 0.001)), #Magic numbers
+                             param = c(1, 0.005)), #Magic numbers
                  rho = list(prior = 'normal', 
                             param = c(0, 1)), #Magic numbers, second is precision
                  mean = list(prior = 'normal',
-                             param = c(0, 4))) #Magic numbers
+                             param = c(0, 2))) #Magic numbers
 
 
 #Define Spatial hyperparameters and corresponding priors
@@ -402,7 +406,7 @@ spatial_hyper = list(prec= list(prior = 'pc.prec',
                      lambda = list(prior = 'gaussian', 
                                    param = c(0, 1))) #Magic numbers
 
-time = 18
+time = 21
 temp_ohio = ohio_df_changed[ohio_df_changed$year <= time, ] #Extract data in year 1:time
 temp_ohio[temp_ohio$year == time, ]$deaths = NA; rownames(temp_ohio) <- 1:nrow(temp_ohio)
 
@@ -430,6 +434,7 @@ proper_full <- inla(proper_full_formula,
                     E = pop_at_risk,
                     control.predictor = list(compute = TRUE),       #For predictions
                     control.compute = list(return.marginals.predictor=TRUE), #For predictions
+                    control.inla = list(int.strategy = "grid"),
                     verbose = T)
 
 plot(proper_full)

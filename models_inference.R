@@ -118,15 +118,17 @@ cat(latex_tabular, file = "table.tex")
 ################################################################################
 
 ############
-##Plots of posteriors
+##Plots of posteriors: save to pdf 7 by 3.2
 plot_intercept(RW1_ICAR_fit, proper_base_fit)
 
 
-#Plot the temporal random effect RW1 vs RW2
+#Plot the temporal random effect RW1 vs RW2: save to pdf 7.5 by 3.5
 plot_temporal_effects_RW1_RW2(RW1_ICAR_fit, RW2_ICAR_fit, T)
 
 #Plot temporal random effect ar1 + fixed (density fixed, ar1, ar1 + fixed)
+#Save to pdf 9.5 by 3.5
 plot_temporal_ar1(proper_base_fit)
+#plot_temporal_ar1(proper_full_fit)
 
 
 #Plot spatial effects Proper vs improper
@@ -144,9 +146,27 @@ plot_spatial_std(RW1_ICAR_fit,
 
 
 
+#Plot the posterior hyperparameters (should it include RW2?)
+#Plot improper temporal posterior hyperparameters: save to pdf 7.5 by 3.5 
+plot_improper_temporal_hyperparameters(RW1_ICAR_fit, RW2_ICAR_fit)
+
+
+#Plot improper spatial posterior hyperparameters: 7 by 3.5
+plot_improper_spatial_hyperparameters(RW1_ICAR_fit)
+
+
+#Plot proper temporal hyperparameters: save to pdf 7.5 by 3.5
+plot_proper_temporal_hyperparameter(proper_base_fit, proper_full_fit)
+
+
+#Plot proper spatial hyperparameters: 7.5 by 3.5
+plot_proper_spatial_hyperparameters(proper_base_fit, proper_full_fit)
+
+
+
 
 #Plot the interactions
-#improper
+#improper: save to pdf 7.5 by 12.5
 plot_improper_interaction(RW1_ICAR_I_fit,
                           RW1_ICAR_II_fit,
                           RW1_ICAR_III_fit,
@@ -163,30 +183,30 @@ plot_proper_interaction(proper_interaction_fit, proper_full_fit)
 
 
 
-#Plot the posterior hyperparameters (should it include RW2?)
-#Plot improper temporal posterior hyperparameters 
-plot_improper_temporal_hyperparameters(RW1_ICAR_fit, RW2_ICAR_fit)
-
-
-#Plot improper spatial posterior hyperparameters
-plot_improper_spatial_hyperparameters(RW1_ICAR_fit)
-
-
 
 
 
 #Plot hyperparameter for interactions
 #RW1
-plot_std_interactions(RW1_ICAR_I_fit,
-                      RW1_ICAR_II_fit,
-                      RW1_ICAR_III_fit,
-                      RW1_ICAR_IV_fit)
+plot_std_interactions_RW1(RW1_ICAR_I_fit,
+                          RW1_ICAR_II_fit,
+                          RW1_ICAR_III_fit,
+                          RW1_ICAR_IV_fit)
 #RW2
+plot_std_interactions_RW2(RW2_ICAR_I_fit,
+                          RW2_ICAR_II_fit,
+                          RW2_ICAR_III_fit,
+                          RW2_ICAR_IV_fit)
 
 
 #Proper
-
-
+#proper_interaction_fit$marginals.hyperpar$`Precision for county`
+#proper_interaction_fit$marginals.hyperpar$`Lambda for county`
+#proper_interaction_fit$marginals.hyperpar$`GroupRho for county`
+#
+#
+#
+proper_full_fit$marginals.hyperpar$
 
 #Fitted values of best model against true values 
 plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
@@ -195,7 +215,6 @@ plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
 
 #Plot fitted-values for certain regions against true values (as time series)
 counties = c(3, 18, 33, 48, 66, 78)
-
 every_county_time_series(RW1_ICAR_II_fit, ohio_df, 
                          counties, n, T)
 

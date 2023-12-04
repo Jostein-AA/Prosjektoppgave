@@ -98,19 +98,21 @@ plot_intercept <- function(improper_base, proper_base){
   
   improper_plot <- ggplot(data = improper.df, 
                           aes(x = x_axis, y = y_axis)) +
-                  geom_area(fill = "#F8766D", alpha = 0.8) +
+                  geom_area(fill = "#F8766D", alpha = 0.8) + #
                   theme_bw() +
                   theme(axis.title=element_text(size=14,face="bold")) +
-                  xlab(expression(mu)) + ylab(expression(f(mu)))
+                  xlab(expression(mu)) + ylab(expression(f(mu))) + 
+                  ggtitle("Intercept improper models")
                           
   
   
   proper_plot <- ggplot(data = proper.df, 
                         aes(x = x_axis, y = y_axis)) +
-                geom_area(fill = "#00BFC4", alpha = 0.8) +
+                geom_area(fill = "#00BFC4", alpha = 0.8) + #
                 theme_bw() + 
                 theme(axis.title=element_text(size=14,face="bold")) +
-                xlab(expression(mu)) + ylab(expression(f(mu)))
+                xlab(expression(mu)) + ylab(expression(f(mu))) + 
+                ggtitle("Intercept proper models")
   
   
   ggarrange(improper_plot, proper_plot,
@@ -139,7 +141,8 @@ plot_temporal_effects_RW1_RW2 <- function(fitted_RW1, fitted_RW2, T){
     geom_line() + 
     geom_line(data = temporal_RW1.df, aes(years, lower_quant), linetype = "dashed") + 
     geom_line(data = temporal_RW1.df, aes(years, upper_quant), linetype = "dashed") + 
-    xlab("year") + ylab(expression(alpha[t]))
+    xlab("year") + ylab(expression(alpha[t])) +
+    ggtitle("RW1")
   
   temporal_RW2 <- ggplot(data = temporal_RW2.df, aes(years, median)) + 
     theme_bw() +
@@ -147,7 +150,8 @@ plot_temporal_effects_RW1_RW2 <- function(fitted_RW1, fitted_RW2, T){
     geom_line() + 
     geom_line(data = temporal_RW2.df, aes(years, lower_quant), linetype = "dashed") + 
     geom_line(data = temporal_RW2.df, aes(years, upper_quant), linetype = "dashed") + 
-    xlab("year") + ylab(expression(alpha[t]))
+    xlab("year") + ylab(expression(alpha[t])) + 
+    ggtitle("RW2")
   
   ggarrange(temporal_RW1, temporal_RW2,
             ncol = 2, nrow = 1)
@@ -167,7 +171,8 @@ plot_temporal_ar1 <- function(proper_base){
                geom_area(fill = "#999999", alpha = 0.8) +
                theme_bw() +
                theme(axis.title=element_text(size=14)) +
-               xlab(expression(beta)) + ylab(expression(f(beta)))
+               xlab(expression(beta)) + ylab(expression(f(beta))) + 
+               ggtitle("Density fixed effect")
   
   years <- 1968:1988
   
@@ -183,7 +188,8 @@ plot_temporal_ar1 <- function(proper_base){
               geom_line() + 
               geom_line(data = ar1.df, aes(years, lower_quant), linetype = "dashed") + 
               geom_line(data = ar1.df, aes(years, upper_quant), linetype = "dashed") + 
-              xlab("year") + ylab(expression(alpha[t]))
+              xlab("year") + ylab(expression(alpha[t])) +
+              ggtitle("Random effect")
   
   years_standardized = 1:21
   beta_mean = proper_base$summary.fixed$mean[2]
@@ -204,7 +210,8 @@ plot_temporal_ar1 <- function(proper_base){
                               aes(years, lower_quant), linetype = "dashed") + 
                     geom_line(data = ar1_fixed.df,
                               aes(years, upper_quant), linetype = "dashed") + 
-                    xlab("year") + ylab(expression(alpha[t]+beta*t))
+                    xlab("year") + ylab(expression(alpha[t]+beta*t)) + 
+                    ggtitle("Random and fixed effect")
     
     
   ggarrange(fixed_plot, ar1_plot, ar1_fixed_plot, 
@@ -347,6 +354,183 @@ plot_spatial_std <- function(improper,
   
 }
 
+
+
+
+#Plot posterior hyperparameters of temporal random effects
+plot_improper_temporal_hyperparameters <- function(fitted_RW1, fitted_RW2){
+  #inla.tmarginal to transform from precision to standard deviation
+  std_year_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
+                                 fitted_RW1$marginals.hyperpar$`Precision for year`)
+  
+  std_year_RW2 <- inla.tmarginal(function(x) sqrt(1/x),
+                                 fitted_RW2$marginals.hyperpar$`Precision for year`)
+  
+  #Format for ggplot
+  std_temporal_df <- data.frame(x_axis = c(std_year_RW1[, 1], std_year_RW2[, 1]),
+                                y_axis = c(std_year_RW1[, 2], std_year_RW2[, 2]),
+                                type = c(rep("RW1", length(std_year_RW1[, 1])),
+                                         rep("RW2", length(std_year_RW2[, 1]))))
+  
+  
+  phi_temporal_df <- data.frame(x_axis = c(fitted_RW1$marginals.hyperpar$`Phi for year`[, 1],
+                                           fitted_RW2$marginals.hyperpar$`Phi for year`[, 1]),
+                                y_axis = c(fitted_RW1$marginals.hyperpar$`Phi for year`[, 2],
+                                           fitted_RW2$marginals.hyperpar$`Phi for year`[, 2]),
+                                type = c(rep("RW1", 
+                                             length(fitted_RW1$marginals.hyperpar$`Phi for year`[, 1])),
+                                         rep("RW2", 
+                                             length(fitted_RW2$marginals.hyperpar$`Phi for year`[, 1]))))
+  
+  std_temporal_plot <- ggplot(data=std_temporal_df) + 
+    stat_density(aes(x=x_axis, group=type, fill=type),
+                 adjust=1.5, alpha=.8, position = "identity") +
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(sigma)) + ylab(expression(f(sigma))) 
+  
+  phi_temporal_plot <- ggplot(data=phi_temporal_df) + 
+    stat_density(aes(x=x_axis, group=type, fill=type),
+                 adjust=6.5, alpha=.8, position = "identity") +
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(lambda)) + ylab(expression(f(lambda)))
+  
+  ggarrange(std_temporal_plot, phi_temporal_plot,
+            common.legend = T, legend = "right")
+  
+  
+}
+
+
+#Plot posterior hyperparameters of spatial random effects
+plot_improper_spatial_hyperparameters <- function(fitted_RW1){
+  std_county_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
+                                   fitted_RW1$marginals.hyperpar$`Precision for county`)
+  
+  std_spatial_df <- data.frame(x_axis = std_county_RW1[, 1],
+                               y_axis = std_county_RW1[, 2])
+  
+  phi_spatial_df <- data.frame(x_axis = fitted_RW1$marginals.hyperpar$`Phi for county`[, 1],
+                               y_axis = fitted_RW1$marginals.hyperpar$`Phi for county`[, 2])
+  
+  std_spatial_plot <- ggplot(data=std_spatial_df,
+                             aes(x=x_axis)) +
+    stat_density(fill = "#F8766D", adjust=1.5, alpha=.8,
+                 position = "identity") +
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(sigma)) + ylab(expression(f(sigma)))
+  
+  phi_spatial_plot <- ggplot(data=phi_spatial_df,
+                             aes(x=x_axis)) +
+    stat_density(fill = "#00BFC4", adjust=3, alpha=.8,
+                 position = "identity") +
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(lambda)) + ylab(expression(f(lambda)))
+  
+  ggarrange(std_spatial_plot, phi_spatial_plot)
+}
+
+#Plot posterior hyperparameters of proper temporal random effect
+plot_proper_temporal_hyperparameter <- function(proper_base, proper_full){
+  
+  std_ar1_base <- inla.tmarginal(function(x) sqrt(1/x),
+                                 proper_base$marginals.hyperpar$`Precision for year.copy`)
+  
+  std_ar1_full <- inla.tmarginal(function(x) sqrt(1/x),
+                                 proper_full$marginals.hyperpar$`Precision for year.copy`)
+  
+  #Format for ggplot
+  std_temporal_df <- data.frame(x_axis = c(std_ar1_base[, 1], std_ar1_full[, 1]),
+                                y_axis = c(std_ar1_base[, 2], std_ar1_full[, 2]),
+                                type = c(rep("Base", length(std_ar1_base[, 1])),
+                                         rep("Full", length(std_ar1_full[, 1]))))
+  
+  
+  rho_temporal_df <- data.frame(x_axis = c(proper_base$marginals.hyperpar$`Rho for year.copy`[, 1],
+                                           proper_full$marginals.hyperpar$`Rho for year.copy`[, 1]),
+                                y_axis = c(proper_base$marginals.hyperpar$`Rho for year.copy`[, 2],
+                                           proper_full$marginals.hyperpar$`Rho for year.copy`[, 2]),
+                                type = c(rep("Base", 
+                                             length(proper_base$marginals.hyperpar$`Rho for year.copy`[, 1])),
+                                         rep("Full", 
+                                             length(proper_full$marginals.hyperpar$`Rho for year.copy`[, 1]))))
+  
+  std_temporal_plot <- ggplot(data=std_temporal_df) + 
+    stat_density(aes(x=x_axis, group=type, fill=type),
+                 adjust=1.5, alpha=.8, position = "identity") +
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(sigma)) + ylab(expression(f(sigma))) 
+  
+  rho_temporal_plot <- ggplot(data=rho_temporal_df) + 
+    stat_density(aes(x=x_axis, group=type, fill=type),
+                 adjust=6.5, alpha=.8, position = "identity") +
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(rho)) + ylab(expression(f(rho)))
+  
+  ggarrange(std_temporal_plot, rho_temporal_plot,
+            common.legend = T, legend = "right")
+  
+}
+
+
+#Plot posterior hyperparameters of proper spatial random effect
+plot_proper_spatial_hyperparameters <- function(proper_base, proper_full){
+  
+  std_CAR_base <- inla.tmarginal(function(x) sqrt(1/x),
+                                 proper_base$marginals.hyperpar$`Precision for county`)
+  
+  std_CAR_full <- inla.tmarginal(function(x) sqrt(1/x),
+                                 proper_full$marginals.hyperpar$`Precision for county`)
+  
+  
+  
+  
+  #Format for ggplot
+  std_spatial_df <- data.frame(x_axis = c(std_CAR_base[, 1], std_CAR_full[, 1]),
+                               y_axis = c(std_CAR_base[, 2], std_CAR_full[, 2]),
+                               type = c(rep("Base", length(std_CAR_base[, 1])),
+                                        rep("Full", length(std_CAR_full[, 1]))))
+  
+  
+  lambda_spatial_df <- data.frame(x_axis = c(proper_base$marginals.hyperpar$`Lambda for county`[, 1],
+                                             proper_full$marginals.hyperpar$`Lambda for county`[, 1]),
+                                  y_axis = c(proper_base$marginals.hyperpar$`Lambda for county`[, 2],
+                                             proper_full$marginals.hyperpar$`Lambda for county`[, 2]),
+                                  type = c(rep("Base", 
+                                               length(proper_base$marginals.hyperpar$`Lambda for county`[, 1])),
+                                           rep("Full", 
+                                               length(proper_full$marginals.hyperpar$`Lambda for county`[, 1]))))
+  
+  std_spatial_plot <- ggplot(data=std_spatial_df) + 
+    stat_density(aes(x=x_axis, group=type, fill=type),
+                 adjust=1.5, alpha=.8, position = "identity") +
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(sigma)) + ylab(expression(f(sigma))) 
+  
+  lambda_spatial_plot <- ggplot(data=lambda_spatial_df) + 
+    stat_density(aes(x=x_axis, group=type, fill=type),
+                 adjust=2, alpha=.8, position = "identity") +
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(lambda)) + ylab(expression(f(lambda)))
+  
+  ggarrange(std_spatial_plot, lambda_spatial_plot,
+            common.legend = T, legend = "right")
+}
 
 
 
@@ -567,89 +751,10 @@ plot_proper_interaction <- function(proper_interaction, proper_full){
 }
 
 
-#Plot posterior hyperparameters of temporal random effects
-plot_improper_temporal_hyperparameters <- function(fitted_RW1, fitted_RW2){
-  #inla.tmarginal to transform from precision to standard deviation
-  std_year_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
-                                 fitted_RW1$marginals.hyperpar$`Precision for year`)
-  
-  std_year_RW2 <- inla.tmarginal(function(x) sqrt(1/x),
-                                 fitted_RW2$marginals.hyperpar$`Precision for year`)
-  
-  #Format for ggplot
-  std_temporal_df <- data.frame(x_axis = c(std_year_RW1[, 1], std_year_RW2[, 1]),
-                                y_axis = c(std_year_RW1[, 2], std_year_RW2[, 2]),
-                                type = c(rep("RW1", length(std_year_RW1[, 1])),
-                                         rep("RW2", length(std_year_RW2[, 1]))))
-  
-  
-  phi_temporal_df <- data.frame(x_axis = c(fitted_RW1$marginals.hyperpar$`Phi for year`[, 1],
-                                           fitted_RW2$marginals.hyperpar$`Phi for year`[, 1]),
-                                y_axis = c(fitted_RW1$marginals.hyperpar$`Phi for year`[, 2],
-                                           fitted_RW2$marginals.hyperpar$`Phi for year`[, 2]),
-                                type = c(rep("RW1", 
-                                             length(fitted_RW1$marginals.hyperpar$`Phi for year`[, 1])),
-                                         rep("RW2", 
-                                             length(fitted_RW2$marginals.hyperpar$`Phi for year`[, 1]))))
-  
-  std_temporal_plot <- ggplot(data=std_temporal_df) + 
-                        stat_density(aes(x=x_axis, group=type, fill=type),
-                                     adjust=1.5, alpha=.8, position = "identity") +
-                        theme_bw() +
-                        theme(axis.title=element_text(size=14)) +
-                        labs(fill = NULL) +
-                        xlab(expression(sigma)) + ylab(expression(f(sigma))) 
-  
-  phi_temporal_plot <- ggplot(data=phi_temporal_df) + 
-                        stat_density(aes(x=x_axis, group=type, fill=type),
-                                     adjust=6.5, alpha=.8, position = "identity") +
-                        theme_bw() +
-                        theme(axis.title=element_text(size=14)) +
-                        labs(fill = NULL) +
-                        xlab(expression(phi)) + ylab(expression(f(phi)))
-  
-  ggarrange(std_temporal_plot, phi_temporal_plot,
-            common.legend = T, legend = "right")
-  
-  
-}
-
-
-#Plot posterior hyperparameters of spatial random effects
-plot_improper_spatial_hyperparameters <- function(fitted_RW1){
-  std_county_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
-                                   fitted_RW1$marginals.hyperpar$`Precision for county`)
-  
-  std_spatial_df <- data.frame(x_axis = std_county_RW1[, 1],
-                               y_axis = std_county_RW1[, 2])
-  
-  phi_spatial_df <- data.frame(x_axis = fitted_RW1$marginals.hyperpar$`Phi for county`[, 1],
-                               y_axis = fitted_RW1$marginals.hyperpar$`Phi for county`[, 2])
-  
-  std_spatial_plot <- ggplot(data=std_spatial_df,
-                             aes(x=x_axis)) +
-                      stat_density(fill = "#F8766D", adjust=1.5, alpha=.8,
-                                   position = "identity") +
-                      theme_bw() +
-                      theme(axis.title=element_text(size=14)) +
-                      labs(fill = NULL) +
-                      xlab(expression(sigma)) + ylab(expression(f(sigma)))
-  
-  phi_spatial_plot <- ggplot(data=phi_spatial_df,
-                             aes(x=x_axis)) +
-                      stat_density(fill = "#00BFC4", adjust=3, alpha=.8,
-                                   position = "identity") +
-                      theme_bw() +
-                      theme(axis.title=element_text(size=14)) +
-                      labs(fill = NULL) +
-                      xlab(expression(phi)) + ylab(expression(f(phi)))
-  
-  ggarrange(std_spatial_plot, phi_spatial_plot)
-}
 
 
 #Plot precision of interaction RW1
-plot_std_interactions <- function(rw1_typeI, rw1_typeII, 
+plot_std_interactions_RW1 <- function(rw1_typeI, rw1_typeII, 
                                   rw1_typeIII, rw1_typeIV){
   
   #Transform from precision to standard deviation
@@ -687,7 +792,7 @@ plot_std_interactions <- function(rw1_typeI, rw1_typeII,
   
 }
 
-#Plot precision of interaction
+#Plot precision of interaction RW2
 plot_std_interactions_RW2 <- function(typeI,
                                       typeII, 
                                       typeIII, 
@@ -722,21 +827,32 @@ plot_std_interactions_RW2 <- function(typeI,
   #Plot
   I_III <- ggplot(data=std_df_I_III,
                   aes(x=x_axis, group=type, fill=type)) +
-                  geom_density(adjust=1.5, alpha=.4) +
+                  geom_density(adjust=1.5, alpha=.8) +
                   theme_bw() +
-                  xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
-                ggtitle("Posterior Density of Standard deviation\n of Interaction")
+                  labs(fill = NULL) +
+                  theme(axis.title=element_text(size=14)) +
+                  xlab(expression(sigma)) + ylab(expression(f(sigma)))
   
   II_IV <- ggplot(data=std_df_II_IV,
                   aes(x=x_axis, group=type, fill=type)) +
-    geom_density(adjust=1.5, alpha=.4) +
+    geom_density(adjust=1.5, alpha=.8) +
     theme_bw() +
-    xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
-    ggtitle("Posterior Density of Standard deviation\n of Interaction")
+    labs(fill = NULL) +
+    theme(axis.title=element_text(size=14)) +
+    xlab(expression(sigma)) + ylab(expression(f(sigma)))
   
-  ggarrange(I_III, II_IV, ncol = 2, nrow = 1, common.legend = FALSE)
+  ggarrange(I_III, II_IV, ncol = 2, nrow = 1, 
+            common.legend = FALSE)
   
 }
+
+
+
+
+#Plot precision of proper interaction
+
+
+
 
 
 
