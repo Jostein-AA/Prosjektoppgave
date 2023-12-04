@@ -83,7 +83,8 @@ proper_base_fit <- inla(proper_base_formula,
 
 time_proper_base = Sys.time()-ptm
 print(c("Basic model fitted in: ", time_proper_base))
-print(mean(-log(proper_base_fit$cpo$cpo)))
+#print(mean(-log(proper_base_fit$cpo$cpo)))
+#plot(proper_base_fit)
 
 ###
 #Define a model with intercept, fixed temporal effect and spatiotemporal interaction by ar1 and properbesag
@@ -107,7 +108,8 @@ proper_interaction_fit <- inla(proper_interaction_formula,
 
 time_proper_interaction = Sys.time()-ptm
 print(c("Proper Interaction model fitted in: ", time_proper_interaction))
-print(mean(-log(proper_interaction_fit$cpo$cpo)))
+#print(mean(-log(proper_interaction_fit$cpo$cpo)))
+#plot(proper_interaction_fit)
 
 ###
 #Define a model with interceot, fixed temporal effect, proper random effects, and proper interaction
@@ -135,12 +137,13 @@ proper_full_fit <- inla(proper_full_formula,
                         E = pop_at_risk, 
                         control.compute = list(config = TRUE, # To see constraints later
                                                cpo = T,   # For model selection
-                                               waic = T)) # For model selection
+                                               waic = T), # For model selection
+                        verbose = T)
 
 time_proper_full = Sys.time()-ptm
 print(c("Proper Full model fitted in: ", time_proper_full))
-print(mean(-log(proper_full_fit$cpo$cpo)))
-
+#print(mean(-log(proper_full_fit$cpo$cpo)))
+#plot(proper_full_fit)
 
 #####
 #Save INLA objects

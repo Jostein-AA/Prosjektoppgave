@@ -21,7 +21,7 @@ source("utilities.R")
 
 #Load in INLA objects
 load("improper_RW1_ICAR_fitted.RData"); load("improper_RW2_ICAR_fitted.RData")
-load(""); load("")
+load("proper_fitted.RData")#; load("")
 
 
 
@@ -119,46 +119,73 @@ cat(latex_tabular, file = "table.tex")
 
 ############
 ##Plots of posteriors
-
-#Plot the intercept
-plot_intercept(RW1_ICAR_fit)
+plot_intercept(RW1_ICAR_fit, proper_base_fit)
 
 
 #Plot the temporal random effect RW1 vs RW2
 plot_temporal_effects_RW1_RW2(RW1_ICAR_fit, RW2_ICAR_fit, T)
 
-#Plot spatial effects
-plot_spatial_effects(RW1_ICAR_fit, ohio_map, n)
+#Plot temporal random effect ar1 + fixed (density fixed, ar1, ar1 + fixed)
+plot_temporal_ar1(proper_base_fit)
 
-#Plot the posterior hyperparameters (should it include RW2?)
-plot_temporal_spatial_hyperparameters(RW1_ICAR_fit, RW2_ICAR_fit)
+
+#Plot spatial effects Proper vs improper
+plot_spatial_effects(RW1_ICAR_fit,
+                     proper_base_fit, 
+                     ohio_map,
+                     n)
+
+
+plot_spatial_std(RW1_ICAR_fit,
+                 proper_base_fit, 
+                 ohio_map,
+                 n)
+
+
+
 
 
 #Plot the interactions
-#RW1
-plot_interaction(RW1_ICAR_I_fit,
-                 RW1_ICAR_II_fit,
-                 RW1_ICAR_III_fit,
-                 RW1_ICAR_IV_fit)
-#RW2
-plot_interaction(RW2_ICAR_I_fit,
-                 RW2_ICAR_II_fit,
-                 RW2_ICAR_III_fit,
-                 RW2_ICAR_IV_fit)
+#improper
+plot_improper_interaction(RW1_ICAR_I_fit,
+                          RW1_ICAR_II_fit,
+                          RW1_ICAR_III_fit,
+                          RW1_ICAR_IV_fit,
+                          RW2_ICAR_I_fit,
+                          RW2_ICAR_II_fit,
+                          RW2_ICAR_III_fit,
+                          RW2_ICAR_IV_fit)
+
+
+#Proper interaction
+plot_proper_interaction(proper_interaction_fit, proper_full_fit)
+
+
+
+
+#Plot the posterior hyperparameters (should it include RW2?)
+#Plot improper temporal posterior hyperparameters 
+plot_improper_temporal_hyperparameters(RW1_ICAR_fit, RW2_ICAR_fit)
+
+
+#Plot improper spatial posterior hyperparameters
+plot_improper_spatial_hyperparameters(RW1_ICAR_fit)
+
+
+
 
 
 #Plot hyperparameter for interactions
 #RW1
-plot_std_interactions_RW1(RW1_ICAR_I_fit,
-                          RW1_ICAR_II_fit,
-                          RW1_ICAR_III_fit,
-                          RW1_ICAR_IV_fit)
-
+plot_std_interactions(RW1_ICAR_I_fit,
+                      RW1_ICAR_II_fit,
+                      RW1_ICAR_III_fit,
+                      RW1_ICAR_IV_fit)
 #RW2
-plot_std_interactions_RW2(RW2_ICAR_I_fit,
-                          RW2_ICAR_II_fit,
-                          RW2_ICAR_III_fit,
-                          RW2_ICAR_IV_fit)
+
+
+#Proper
+
 
 
 #Fitted values of best model against true values 

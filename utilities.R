@@ -88,16 +88,34 @@ print_cpo_etc <- function(fitted_model, time_obj){
 
 
 #Plot the intercept
-plot_intercept <- function(fitted_model){
+plot_intercept <- function(improper_base, proper_base){
   #Format intercept for ggplot
-  intercept.df <- data.frame(x = fitted_model$marginals.fixed$`(Intercept)`[, 1])
-  intercept.df$y <- fitted_model$marginals.fixed$`(Intercept)`[, 2]
+  improper.df <- data.frame(x_axis = improper_base$marginals.fixed$`(Intercept)`[, 1],
+                            y_axis = improper_base$marginals.fixed$`(Intercept)`[, 2])
   
-  ggplot(data = intercept.df, aes(x = x, y = y)) + 
-    theme_bw() +
-    geom_line() + 
-    xlab(expression(mu)) + ylab(expression(f(mu))) + 
-    ggtitle("Posterior Density of Intercept")
+  proper.df <- data.frame(x_axis = proper_base$marginals.fixed$`(Intercept)`[, 1],
+                          y_axis = proper_base$marginals.fixed$`(Intercept)`[, 2])
+  
+  improper_plot <- ggplot(data = improper.df, 
+                          aes(x = x_axis, y = y_axis)) +
+                  geom_area(fill = "#F8766D", alpha = 0.8) +
+                  theme_bw() +
+                  theme(axis.title=element_text(size=14,face="bold")) +
+                  xlab(expression(mu)) + ylab(expression(f(mu)))
+                          
+  
+  
+  proper_plot <- ggplot(data = proper.df, 
+                        aes(x = x_axis, y = y_axis)) +
+                geom_area(fill = "#00BFC4", alpha = 0.8) +
+                theme_bw() + 
+                theme(axis.title=element_text(size=14,face="bold")) +
+                xlab(expression(mu)) + ylab(expression(f(mu)))
+  
+  
+  ggarrange(improper_plot, proper_plot,
+            ncol = 2, nrow = 1)
+  
 }
 
 #Plot temporal effect RW1 vs RW2
@@ -117,102 +135,446 @@ plot_temporal_effects_RW1_RW2 <- function(fitted_RW1, fitted_RW2, T){
   
   temporal_RW1 <- ggplot(data = temporal_RW1.df, aes(years, median)) + 
     theme_bw() +
+    theme(axis.title=element_text(size=14)) +
     geom_line() + 
     geom_line(data = temporal_RW1.df, aes(years, lower_quant), linetype = "dashed") + 
     geom_line(data = temporal_RW1.df, aes(years, upper_quant), linetype = "dashed") + 
-    xlab("year: t") + ylab(expression(alpha[t])) + 
-    ggtitle("Structured Temporal Effect RW1")
+    xlab("year") + ylab(expression(alpha[t]))
   
   temporal_RW2 <- ggplot(data = temporal_RW2.df, aes(years, median)) + 
     theme_bw() +
+    theme(axis.title=element_text(size=14)) +
     geom_line() + 
     geom_line(data = temporal_RW2.df, aes(years, lower_quant), linetype = "dashed") + 
     geom_line(data = temporal_RW2.df, aes(years, upper_quant), linetype = "dashed") + 
-    xlab("year: t") + ylab(expression(alpha[t])) + 
-    ggtitle("Structured Temporal Effect RW2")
+    xlab("year") + ylab(expression(alpha[t]))
   
-  ggarrange(temporal_RW1, temporal_RW2)
+  ggarrange(temporal_RW1, temporal_RW2,
+            ncol = 2, nrow = 1)
 }
 
 
+#Plot temporal effect ar1 + fixed
+plot_temporal_ar1 <- function(proper_base){
+  
+  #proper_base_fit$marginals.fixed$year
+  fixed.df <- data.frame(x_axis = proper_base$marginals.fixed$year[, 1],
+                         y_axis = proper_base$marginals.fixed$year[, 2])
+  
+  
+  fixed_plot <- ggplot(data = fixed.df, 
+                       aes(x = x_axis, y = y_axis)) +
+               geom_area(fill = "#999999", alpha = 0.8) +
+               theme_bw() +
+               theme(axis.title=element_text(size=14)) +
+               xlab(expression(beta)) + ylab(expression(f(beta)))
+  
+  years <- 1968:1988
+  
+  ar1.df <- data.frame(year = years,
+                       lower_quant = proper_base$summary.random$year.copy[, 4],
+                       median = proper_base$summary.random$year.copy[, 5],
+                       upper_quant = proper_base$summary.random$year.copy[, 6])
+  
+  
+  ar1_plot <- ggplot(data = ar1.df, aes(year, median)) +
+              theme_bw() + 
+              theme(axis.title=element_text(size=14)) +
+              geom_line() + 
+              geom_line(data = ar1.df, aes(years, lower_quant), linetype = "dashed") + 
+              geom_line(data = ar1.df, aes(years, upper_quant), linetype = "dashed") + 
+              xlab("year") + ylab(expression(alpha[t]))
+  
+  years_standardized = 1:21
+  beta_mean = proper_base$summary.fixed$mean[2]
+  ar1_fixed_median = ar1.df$median + beta_mean * years_standardized
+  lower_quant = ar1.df$lower_quant + beta_mean * years_standardized
+  upper_quant = ar1.df$upper_quant + beta_mean * years_standardized
+  
+  ar1_fixed.df = data.frame(year = years,
+                            median = ar1_fixed_median,
+                            lower_quant = lower_quant,
+                            upper_quant = upper_quant)
+  
+  ar1_fixed_plot <- ggplot(data = ar1_fixed.df, aes(year, median)) + 
+                    theme_bw() + 
+                    theme(axis.title=element_text(size=14)) +
+                    geom_line() + 
+                    geom_line(data = ar1_fixed.df,
+                              aes(years, lower_quant), linetype = "dashed") + 
+                    geom_line(data = ar1_fixed.df,
+                              aes(years, upper_quant), linetype = "dashed") + 
+                    xlab("year") + ylab(expression(alpha[t]+beta*t))
+    
+    
+  ggarrange(fixed_plot, ar1_plot, ar1_fixed_plot, 
+            ncol = 3, nrow = 1)
+}
+
+
+
 #Plot posterior intercept, temporal effects and spatial effects
-plot_spatial_effects <- function(fitted_model, map, n){
+plot_spatial_effects <- function(improper,
+                                 proper,
+                                 map,
+                                 n){
   #Function that produces four plots: The posterior intercept, 
   #posterior structured temporal effect along with 2.5% and 97.5% quantiles
   scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
   scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
   
-  spatial_structured_effect_mean <- fitted_model$summary.random$county$mean[(n+1):(2*n)]
-  spatial_structured_effect_sd <- fitted_model$summary.random$county$sd[(n+1):(2*n)]
+  improper_mean <- improper$summary.random$county$mean[(n+1):(2*n)]
+  proper_mean <- proper$summary.random$county$mean
+  
   temp_ohio_map <- map[ ,c("geometry", "NAME")]
-  temp_ohio_map$mean <- spatial_structured_effect_mean
-  temp_ohio_map$sd <- spatial_structured_effect_sd
+  temp_ohio_map$improper_mean <- improper_mean
+  temp_ohio_map$proper_mean <- proper_mean
   
   #Set the theme to minimal
   theme_set(theme(panel.background = element_blank()))
-  p_1 <- ggplot(data = temp_ohio_map) + 
-    geom_sf(aes(fill = mean), 
-            alpha = 1,
-            color="black") + ggtitle("Mean Spatial Structured Effect each County") +
-    theme(plot.title = element_text(size = 12),
-          axis.title.x = element_blank(), #Remove axis and background grid
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          panel.background = element_blank(),
-          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
-          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-          panel.spacing = unit(1, 'lines')) +
-    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
-    binned_scale( #Scaling the color
-      aesthetics = "fill",
-      scale_name = "gradientn",
-      palette = function(x) c(scale_1),
-      labels = function(x){x},
-      guide = "colorscale")
+  improper_mean_plot <- ggplot(data = temp_ohio_map) + 
+                        geom_sf(aes(fill = improper_mean), 
+                                alpha = 1,
+                                color="black") + ggtitle("Mean Besag") +
+                        theme(plot.title = element_text(size = 12),
+                              axis.title.x = element_blank(), #Remove axis and background grid
+                              axis.text = element_blank(),
+                              axis.ticks = element_blank(),
+                              panel.background = element_blank(),
+                              plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+                              legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+                              legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+                              panel.spacing = unit(1, 'lines')) +
+                        guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+                        binned_scale( #Scaling the color
+                          aesthetics = "fill",
+                          scale_name = "gradientn",
+                          palette = function(x) c(scale_1),
+                          labels = function(x){x},
+                          guide = "colorscale")
   
-  p_2 <- ggplot(data = temp_ohio_map) + 
-    geom_sf(aes(fill = sd), 
-            alpha = 1,
-            color="black") + ggtitle("Standard deviation of Structured Spatial Effect\n for each county") +
-    theme(plot.title = element_text(size = 12),
-          axis.title.x = element_blank(), #Remove axis and background grid
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          panel.background = element_blank(),
-          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
-          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
-          panel.spacing = unit(1, 'lines')) +
-    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
-    binned_scale( #Scaling the color
-      aesthetics = "fill",
-      scale_name = "gradientn",
-      palette = function(x) c(scale_1),
-      labels = function(x){x},
-      guide = "colorscale")
+  proper_mean_plot <- ggplot(data = temp_ohio_map) + 
+                      geom_sf(aes(fill = improper_mean), 
+                              alpha = 1,
+                              color="black") + ggtitle("Mean proper Besag") +
+                      theme(plot.title = element_text(size = 12),
+                            axis.title.x = element_blank(), #Remove axis and background grid
+                            axis.text = element_blank(),
+                            axis.ticks = element_blank(),
+                            panel.background = element_blank(),
+                            plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+                            legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+                            legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+                            panel.spacing = unit(1, 'lines')) +
+                      guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+                      binned_scale( #Scaling the color
+                        aesthetics = "fill",
+                        scale_name = "gradientn",
+                        palette = function(x) c(scale_1),
+                        labels = function(x){x},
+                        guide = "colorscale")
   
-  ggarrange(p_1, p_2,
+  ggarrange(improper_mean_plot, proper_mean_plot,
             ncol = 2, nrow = 1,
             common.legend = FALSE)
 }
 
+plot_spatial_std <- function(improper,
+                             proper,
+                             map,
+                             n){
+  
+  #Function that produces four plots: The posterior intercept, 
+  #posterior structured temporal effect along with 2.5% and 97.5% quantiles
+  scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
+  scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
+  
+  improper_sd <- improper$summary.random$county$sd[(n+1):(2*n)]
+  proper_sd <- proper$summary.random$county$sd
+  
+  temp_ohio_map <- map[ ,c("geometry", "NAME")]
+  temp_ohio_map$improper_sd <- improper_sd
+  temp_ohio_map$proper_sd <- proper_sd
+  
+  #Set the theme to minimal
+  theme_set(theme(panel.background = element_blank()))
+  improper_sd_plot <- ggplot(data = temp_ohio_map) + 
+    geom_sf(aes(fill = improper_sd), 
+            alpha = 1,
+            color="black") + ggtitle("Standard deviation Besag") +
+    theme(plot.title = element_text(size = 12),
+          axis.title.x = element_blank(), #Remove axis and background grid
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          panel.spacing = unit(1, 'lines')) +
+    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+    binned_scale( #Scaling the color
+      aesthetics = "fill",
+      scale_name = "gradientn",
+      palette = function(x) c(scale_1),
+      labels = function(x){x},
+      guide = "colorscale")
+  
+  proper_sd_plot <- ggplot(data = temp_ohio_map) + 
+    geom_sf(aes(fill = proper_sd), 
+            alpha = 1,
+            color="black") + ggtitle("Standard deviation proper Besag") +
+    theme(plot.title = element_text(size = 12),
+          axis.title.x = element_blank(), #Remove axis and background grid
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.background = element_blank(),
+          plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+          legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
+          panel.spacing = unit(1, 'lines')) +
+    guides(fill=guide_legend(title=NULL, reverse = TRUE, label.position = "right")) + #Remove colorbar title
+    binned_scale( #Scaling the color
+      aesthetics = "fill",
+      scale_name = "gradientn",
+      palette = function(x) c(scale_1),
+      labels = function(x){x},
+      guide = "colorscale")
 
-#Plot posterior hyperparameters of temporal and random effects
-plot_temporal_spatial_hyperparameters <- function(fitted_RW1, fitted_RW2){
+  
+  ggarrange(improper_sd_plot, proper_sd_plot,
+            ncol = 2, nrow = 1,
+            common.legend = FALSE)
+  
+}
+
+
+
+
+
+#Plot the interactions
+plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
+                             rw2_I, rw2_II, rw2_III, rw2_IV){
+  x_axis = 1:length(rw1_I$summary.random$space.time[ , 4])
+  #Format for ggplot
+  rw1_I.df <- data.frame(x_axis = x_axis,
+                         lower_quant = rw1_I$summary.random$space.time[ , 4], 
+                         median = rw1_I$summary.random$space.time[ , 5],
+                         upper_quant = rw1_I$summary.random$space.time[ , 6])
+  
+  rw1_II.df <- data.frame(x_axis = x_axis,
+                         lower_quant = rw1_II$summary.random$space.time[ , 4], 
+                         median = rw1_II$summary.random$space.time[ , 5],
+                         upper_quant = rw1_II$summary.random$space.time[ , 6])
+  
+  rw1_III.df <- data.frame(x_axis = x_axis,
+                         lower_quant = rw1_III$summary.random$space.time[ , 4], 
+                         median = rw1_III$summary.random$space.time[ , 5],
+                         upper_quant = rw1_III$summary.random$space.time[ , 6])
+  
+  rw1_IV.df <- data.frame(x_axis = x_axis,
+                         lower_quant = rw1_IV$summary.random$space.time[ , 4], 
+                         median = rw1_IV$summary.random$space.time[ , 5],
+                         upper_quant = rw1_IV$summary.random$space.time[ , 6])
+  
+  rw2_I.df <- data.frame(x_axis = x_axis,
+                         lower_quant = rw2_I$summary.random$space.time[ , 4], 
+                         median = rw2_I$summary.random$space.time[ , 5],
+                         upper_quant = rw2_I$summary.random$space.time[ , 6])
+  
+  rw2_II.df <- data.frame(x_axis = x_axis,
+                          lower_quant = rw2_II$summary.random$space.time[ , 4], 
+                          median = rw2_II$summary.random$space.time[ , 5],
+                          upper_quant = rw2_II$summary.random$space.time[ , 6])
+  
+  rw2_III.df <- data.frame(x_axis = x_axis,
+                           lower_quant = rw2_III$summary.random$space.time[ , 4], 
+                           median = rw2_III$summary.random$space.time[ , 5],
+                           upper_quant = rw2_III$summary.random$space.time[ , 6])
+  
+  rw2_IV.df <- data.frame(x_axis = x_axis,
+                          lower_quant = rw2_IV$summary.random$space.time[ , 4], 
+                          median = rw2_IV$summary.random$space.time[ , 5],
+                          upper_quant = rw2_IV$summary.random$space.time[ , 6])
+  
+  
+  
+  
+  
+  rw1_I_plot <- ggplot(data = rw1_I.df, aes(x = x_axis)) + 
+                  geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                              fill = "lightgrey", alpha = 0.6) +
+                  geom_line(aes(y = median, col = "Median")) +
+                  xlab("space.time") + ylab("Type I Interaction") + 
+                  theme_bw() + 
+                  labs(col = NULL) 
+  
+  rw2_I_plot <- ggplot(data = rw2_I.df, aes(x = x_axis)) + 
+    geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                fill = "lightgrey", alpha = 0.6) +
+    geom_line(aes(y = median, col = "Median")) +
+    xlab("space.time") + ylab("Type I Interaction") + 
+    theme_bw() + 
+    labs(col = NULL) 
+  
+  rw1_II_plot <- ggplot(data = rw1_II.df, aes(x = x_axis)) + 
+    geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                fill = "lightgrey", alpha = 0.6) +
+    geom_line(aes(y = median, col = "Median")) +
+    xlab("space.time") + ylab("Type II Interaction") + 
+    theme_bw() + 
+    labs(col = NULL) 
+  
+  rw2_II_plot <- ggplot(data = rw2_II.df, aes(x = x_axis)) + 
+    geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                fill = "lightgrey", alpha = 0.6) +
+    geom_line(aes(y = median, col = "Median")) +
+    xlab("space.time") + ylab("Type II Interaction") + 
+    theme_bw() + 
+    labs(col = NULL) 
+  
+  rw1_III_plot <- ggplot(data = rw1_III.df, aes(x = x_axis)) + 
+    geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                fill = "lightgrey", alpha = 0.6) +
+    geom_line(aes(y = median, col = "Median")) +
+    xlab("space.time") + ylab("Type III Interaction") + 
+    theme_bw() + 
+    labs(col = NULL) 
+  
+  rw2_III_plot <- ggplot(data = rw2_III.df, aes(x = x_axis)) + 
+    geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                fill = "lightgrey", alpha = 0.6) +
+    geom_line(aes(y = median, col = "Median")) +
+    xlab("space.time") + ylab("Type III Interaction") + 
+    theme_bw() + 
+    labs(col = NULL) 
+  
+  rw1_IV_plot <- ggplot(data = rw1_IV.df, aes(x = x_axis)) + 
+    geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                fill = "lightgrey", alpha = 0.6) +
+    geom_line(aes(y = median, col = "Median")) +
+    xlab("space.time") + ylab("Type IV Interaction") + 
+    theme_bw() + 
+    labs(col = NULL) 
+  
+  rw2_IV_plot <- ggplot(data = rw2_IV.df, aes(x = x_axis)) + 
+    geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                fill = "lightgrey", alpha = 0.6) +
+    geom_line(aes(y = median, col = "Median")) +
+    xlab("space.time") + ylab("Type IV Interaction") + 
+    theme_bw() + 
+    labs(col = NULL) 
+  
+  ggarrange(rw1_I_plot, rw2_I_plot,
+            rw1_II_plot, rw2_II_plot,
+            rw1_III_plot, rw2_III_plot,
+            rw1_IV_plot, rw2_IV_plot,
+            ncol = 2, nrow = 4,
+            common.legend = TRUE, legend = "right")
+  
+  
+  #temp <- 1:length(typeI$summary.random$space.time[ , 4])
+  
+  #typeI.df <- data.frame(x_axis = c(temp, temp, temp),
+  #                       quantiles = c(typeI$summary.random$space.time[ , 4],
+  #                                     typeI$summary.random$space.time[ , 5],
+  #                                     typeI$summary.random$space.time[ , 6]),
+  #                       type = c(rep("0.025 quantile", length(temp)),
+  #                                rep("median", length(temp)),
+  #                                rep("0.975 quantile", length(temp))))
+  
+  #typeI.df <- typeI.df %>% mutate(color = case_when(
+  #  type == "median" ~ "black",
+  #  TRUE ~ "grey"
+  #))
+  
+  
+  #ggplot(data = typeI.df) + 
+  #  theme_bw() + 
+  #  labs(col = NULL) +
+  #  geom_line(aes(x = x_axis, y = quantiles, group = type, color = color)) +
+  #  xlab("space.time") + ylab("Type I Interaction")
+    
+  
+  
+  #par(mfrow = c(2, 2))
+  #matplot(typeI$summary.random$space.time[ , 4:6],
+  #        lty=c(2,1,2), type="l", col=1,
+  #        xlab = "space.time", ylab = "Type I Interaction")
+  
+  #matplot(typeII$summary.random$space.time[ , 4:6],
+  #        lty=c(2,1,2), type="l", col=1,
+  #        xlab = "space.time", ylab = "Type II Interaction effect")
+  
+  #matplot(typeIII$summary.random$space.time[ , 4:6],
+  #        lty=c(2,1,2), type="l", col=1,
+  #        xlab = "space.time", ylab = "Type III Interaction effect")
+  
+  #matplot(typeIV$summary.random$space.time[ , 4:6],
+  #        lty=c(2,1,2), type="l", col=1,
+  #        xlab = "space.time", ylab = "Type IV Interaction effect")
+}
+
+
+
+
+plot_proper_interaction <- function(proper_interaction, proper_full){
+  #want to restructure to get year over county
+  x_axis = 1:length(proper_interaction$summary.random$county[ , 5])
+  
+  #Format for ggplot
+  only_interaction.df <- data.frame(x_axis = x_axis,
+                                 lower_quant = proper_interaction$summary.random$county[ , 4],
+                                 median = proper_interaction$summary.random$county[ , 5],
+                                 upper_quant = proper_interaction$summary.random$county[ , 6])
+  
+  
+  interaction_and_more.df <- data.frame(x_axis = x_axis,
+                                lower_quant = proper_full$summary.random$county.copy[ , 4],
+                                median = proper_full$summary.random$county.copy[ , 5],
+                                upper_quant = proper_full$summary.random$county.copy[ , 6])
+  
+  
+  
+  only_interaction_plot <- ggplot(data = only_interaction.df, aes(x = x_axis)) + 
+                        geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                                    fill = "lightgrey", alpha = 0.6) +
+                        geom_line(aes(y = median, col = "Median")) +
+                        xlab("space.time") + ylab("Proper interaction") + 
+                        theme_bw() + 
+                        labs(col = NULL)
+  
+  interaction_and_more_plot <- ggplot(data = interaction_and_more.df, aes(x = x_axis)) + 
+                        geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
+                                    fill = "lightgrey", alpha = 0.6) +
+                        geom_line(aes(y = median, col = "Median")) +
+                        xlab("space.time") + ylab("Proper interaction") + 
+                        theme_bw() + 
+                        labs(col = NULL)
+  
+  ggarrange(only_interaction_plot, interaction_and_more_plot,
+            ncol = 1, nrow = 2,
+            common.legend = TRUE, legend = "right")
+  
+  #par(mfrow = c(2, 1))
+  #matplot(proper_interaction$summary.random$county[ , 5],
+  #                lty=c(1), type="l", col=1,
+  #                xlab = "", ylab = "proper interaction")
+  
+  #matplot(proper_full$summary.random$county.copy[ , 5],
+  #        lty=c(1), type="l", col=1,
+  #        xlab = "", ylab = "proper interaction")
+  
+}
+
+
+#Plot posterior hyperparameters of temporal random effects
+plot_improper_temporal_hyperparameters <- function(fitted_RW1, fitted_RW2){
   #inla.tmarginal to transform from precision to standard deviation
   std_year_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
                                  fitted_RW1$marginals.hyperpar$`Precision for year`)
   
   std_year_RW2 <- inla.tmarginal(function(x) sqrt(1/x),
                                  fitted_RW2$marginals.hyperpar$`Precision for year`)
-  
-  std_county_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
-                                   fitted_RW1$marginals.hyperpar$`Precision for county`)
-  
-  std_county_RW2 <- inla.tmarginal(function(x) sqrt(1/x),
-                                   fitted_RW2$marginals.hyperpar$`Precision for county`)
-  
   
   #Format for ggplot
   std_temporal_df <- data.frame(x_axis = c(std_year_RW1[, 1], std_year_RW2[, 1]),
@@ -228,127 +590,101 @@ plot_temporal_spatial_hyperparameters <- function(fitted_RW1, fitted_RW2){
                                 type = c(rep("RW1", 
                                              length(fitted_RW1$marginals.hyperpar$`Phi for year`[, 1])),
                                          rep("RW2", 
-                                             length(fitted_RW2$marginals.hyperpar$`Phi for year`[, 1])))
-  )
+                                             length(fitted_RW2$marginals.hyperpar$`Phi for year`[, 1]))))
   
+  std_temporal_plot <- ggplot(data=std_temporal_df) + 
+                        stat_density(aes(x=x_axis, group=type, fill=type),
+                                     adjust=1.5, alpha=.8, position = "identity") +
+                        theme_bw() +
+                        theme(axis.title=element_text(size=14)) +
+                        labs(fill = NULL) +
+                        xlab(expression(sigma)) + ylab(expression(f(sigma))) 
   
-  std_spatial_df <- data.frame(x_axis = c(std_county_RW1[, 1], std_county_RW2[, 1]),
-                                y_axis = c(std_county_RW1[, 2], std_county_RW2[, 2]),
-                                type = c(rep("RW1", length(std_county_RW1[, 1])),
-                                         rep("RW2", length(std_county_RW2[, 1]))))
-  
-  phi_spatial_df <- data.frame(x_axis = c(fitted_RW1$marginals.hyperpar$`Phi for county`[, 1],
-                                           fitted_RW2$marginals.hyperpar$`Phi for county`[, 1]),
-                                y_axis = c(fitted_RW1$marginals.hyperpar$`Phi for county`[, 2],
-                                           fitted_RW2$marginals.hyperpar$`Phi for county`[, 2]),
-                                type = c(rep("RW1", 
-                                             length(fitted_RW1$marginals.hyperpar$`Phi for county`[, 1])),
-                                         rep("RW2", 
-                                             length(fitted_RW2$marginals.hyperpar$`Phi for county`[, 1])))
-  )
-
-  
-  # With transparency (right)
-  std_temporal_plot <- ggplot(data=std_temporal_df,
-                              aes(x=x_axis, group=type, fill=type)) +
-    geom_density(adjust=1.5, alpha=.4) +
-    theme_bw() +
-    labs(fill = NULL) +
-    xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
-    ggtitle("Posterior Density of Standard deviation\n of Temporal Random Effects") 
-  
-  phi_temporal_plot <- ggplot(data=phi_temporal_df,
-                              aes(x=x_axis, group=type, fill=type)) +
-    geom_density(adjust=1.5, alpha=.4) +
-    theme_bw() +
-    labs(fill = NULL) +
-    xlab(expression(phi)) + ylab(expression(f(phi))) + 
-    ggtitle("Posterior Density of Temporal Mixing Parameter") 
-  
-  std_spatial_plot <- ggplot(data=std_spatial_df,
-                              aes(x=x_axis, group=type, fill=type)) +
-    geom_density(adjust=1.5, alpha=.4) +
-    theme_bw() +
-    labs(fill = NULL) +
-    xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
-    ggtitle("Posterior Density of Standard deviation\n of Spatial Random Effects")
-  
-  phi_spatial_plot <- ggplot(data=phi_spatial_df,
-                              aes(x=x_axis, group=type, fill=type)) +
-    geom_density(adjust=1.5, alpha=.4) +
-    theme_bw() +
-    labs(fill = NULL) +
-    xlab(expression(phi)) + ylab(expression(f(phi))) + 
-    ggtitle("Posterior Density of Spatial Mixing Parameter") 
-  
+  phi_temporal_plot <- ggplot(data=phi_temporal_df) + 
+                        stat_density(aes(x=x_axis, group=type, fill=type),
+                                     adjust=6.5, alpha=.8, position = "identity") +
+                        theme_bw() +
+                        theme(axis.title=element_text(size=14)) +
+                        labs(fill = NULL) +
+                        xlab(expression(phi)) + ylab(expression(f(phi)))
   
   ggarrange(std_temporal_plot, phi_temporal_plot,
-            std_spatial_plot, phi_spatial_plot,
             common.legend = T, legend = "right")
   
   
 }
 
 
-
-#Plot the interactions
-plot_interaction <- function(typeI, typeII, typeIII, typeIV){
-  par(mfrow = c(2, 2))
-  matplot(typeI$summary.random$space.time[ , 4:6],
-          lty=c(2,1,2), type="l", col=1,
-          xlab = "Datum ID", ylab = "Type I Interaction effect")
+#Plot posterior hyperparameters of spatial random effects
+plot_improper_spatial_hyperparameters <- function(fitted_RW1){
+  std_county_RW1 <- inla.tmarginal(function(x) sqrt(1/x),
+                                   fitted_RW1$marginals.hyperpar$`Precision for county`)
   
-  matplot(typeII$summary.random$space.time[ , 4:6],
-          lty=c(2,1,2), type="l", col=1,
-          xlab = "Datum ID", ylab = "Type II Interaction effect")
+  std_spatial_df <- data.frame(x_axis = std_county_RW1[, 1],
+                               y_axis = std_county_RW1[, 2])
   
-  matplot(typeIII$summary.random$space.time[ , 4:6],
-          lty=c(2,1,2), type="l", col=1,
-          xlab = "Datum ID", ylab = "Type III Interaction effect")
+  phi_spatial_df <- data.frame(x_axis = fitted_RW1$marginals.hyperpar$`Phi for county`[, 1],
+                               y_axis = fitted_RW1$marginals.hyperpar$`Phi for county`[, 2])
   
-  matplot(typeIV$summary.random$space.time[ , 4:6],
-          lty=c(2,1,2), type="l", col=1,
-          xlab = "Datum ID", ylab = "Type IV Interaction effect")
+  std_spatial_plot <- ggplot(data=std_spatial_df,
+                             aes(x=x_axis)) +
+                      stat_density(fill = "#F8766D", adjust=1.5, alpha=.8,
+                                   position = "identity") +
+                      theme_bw() +
+                      theme(axis.title=element_text(size=14)) +
+                      labs(fill = NULL) +
+                      xlab(expression(sigma)) + ylab(expression(f(sigma)))
+  
+  phi_spatial_plot <- ggplot(data=phi_spatial_df,
+                             aes(x=x_axis)) +
+                      stat_density(fill = "#00BFC4", adjust=3, alpha=.8,
+                                   position = "identity") +
+                      theme_bw() +
+                      theme(axis.title=element_text(size=14)) +
+                      labs(fill = NULL) +
+                      xlab(expression(phi)) + ylab(expression(f(phi)))
+  
+  ggarrange(std_spatial_plot, phi_spatial_plot)
 }
 
 
-
 #Plot precision of interaction RW1
-plot_std_interactions_RW1 <- function(typeI,
-                                  typeII, 
-                                  typeIII, 
-                                  typeIV,
-                                  title){
+plot_std_interactions <- function(rw1_typeI, rw1_typeII, 
+                                  rw1_typeIII, rw1_typeIV){
   
   #Transform from precision to standard deviation
-  std_I <- inla.tmarginal(function(x) sqrt(1/x),
-                          typeI$marginals.hyperpar$`Precision for space.time`)
+  rw1_std_I <- inla.tmarginal(function(x) sqrt(1/x),
+                              rw1_typeI$marginals.hyperpar$`Precision for space.time`)
   
-  std_II <- inla.tmarginal(function(x) sqrt(1/x),
-                          typeII$marginals.hyperpar$`Precision for space.time`)
+  rw1_std_II <- inla.tmarginal(function(x) sqrt(1/x),
+                               rw1_typeII$marginals.hyperpar$`Precision for space.time`)
   
-  std_III <- inla.tmarginal(function(x) sqrt(1/x),
-                          typeIII$marginals.hyperpar$`Precision for space.time`)
+  rw1_std_III <- inla.tmarginal(function(x) sqrt(1/x),
+                                rw1_typeIII$marginals.hyperpar$`Precision for space.time`)
   
-  std_IV <- inla.tmarginal(function(x) sqrt(1/x),
-                          typeIV$marginals.hyperpar$`Precision for space.time`)
+  rw1_std_IV <- inla.tmarginal(function(x) sqrt(1/x),
+                               rw1_typeIV$marginals.hyperpar$`Precision for space.time`)
   
   
   #Format for ggplot
-  std_df <- data.frame(x_axis = c(std_I[, 1], std_II[, 1], std_III[, 1], std_IV[, 1]),
-                       y_axis = c(std_I[, 2], std_II[, 2], std_III[, 2], std_IV[, 2]),
-                       type = c(rep("Type I", length(std_I[, 1])),
-                                rep("Type II", length(std_II[, 1])),
-                                rep("Type III", length(std_III[, 1])),
-                                rep("Type IV", length(std_IV[, 1]))))
+  rw1_std_df <- data.frame(x_axis = c(rw1_std_I[, 1], rw1_std_II[, 1],
+                                      rw1_std_III[, 1], rw1_std_IV[, 1]),
+                           y_axis = c(rw1_std_I[, 2], rw1_std_II[, 2],
+                                      rw1_std_III[, 2], rw1_std_IV[, 2]),
+                           type = c(rep("Type I", length(rw1_std_I[, 1])),
+                                    rep("Type II", length(rw1_std_II[, 1])),
+                                    rep("Type III", length(rw1_std_III[, 1])),
+                                    rep("Type IV", length(rw1_std_IV[, 1]))))
   
   #Plot
-  ggplot(data=std_df,
+  ggplot(data=rw1_std_df,
          aes(x=x_axis, group=type, fill=type)) +
-    geom_density(adjust=1.5, alpha=.4) +
-    theme_bw() +
-    xlab(expression(sigma)) + ylab(expression(f(sigma))) + 
-    ggtitle("Posterior Density of Standard deviation\n of Interaction")
+    geom_density(adjust=1.5, alpha=.8) +
+    theme_bw() + 
+    theme(axis.title=element_text(size=14)) +
+    labs(fill = NULL) +
+    xlab(expression(sigma)) + ylab(expression(f(sigma)))
+  
 }
 
 #Plot precision of interaction
