@@ -22,7 +22,7 @@ source("utilities.R")
 
 #Load in INLA objects
 load("improper_RW1_ICAR_fitted.RData"); load("improper_RW2_ICAR_fitted.RData")
-load("proper_fitted.RData")#; load("")
+load("proper_fitted.RData"); load("one_step_predictions.RData")
 
 
 
@@ -242,11 +242,6 @@ plot_improper_interaction(RW1_ICAR_I_fit,
 plot_proper_interaction(proper_interaction_fit, proper_full_fit)
 
 
-
-
-
-
-
 #Plot hyperparameter for interactions
 #RW1
 plot_std_interactions_RW1(RW1_ICAR_I_fit,
@@ -260,24 +255,88 @@ plot_std_interactions_RW2(RW2_ICAR_I_fit,
                           RW2_ICAR_IV_fit)
 
 
-#Proper
-#proper_interaction_fit$marginals.hyperpar$`Precision for county`
-#proper_interaction_fit$marginals.hyperpar$`Lambda for county`
-#proper_interaction_fit$marginals.hyperpar$`GroupRho for county`
-#
-#
-#
-proper_full_fit$marginals.hyperpar$
+#Proper: save 10 by 3
+plot_proper_hyperparameters(proper_interaction_fit,
+                            proper_full_fit)
 
+  
+#####
+#Plot fitted-values for certain regions against true values (as time series)
+
+#Want to extract county with highest average rate, lowest average,
+#the one with largest range, and one random one
+max_avg_rate <- mean(ohio_df[ohio_df$county == 1, ]$rate)
+id_max_avg_rate <- 1
+
+min_avg_rate <- mean(ohio_df[ohio_df$county == 1, ]$rate)
+id_min_avg_rate <- 1
+
+max_range_rate <- max(ohio_df[ohio_df$county == 1, ]$rate) - min(ohio_df[ohio_df$county == 1, ]$rate)
+id_max_range_rate <- 1
+for(i in 2:n){
+  county = ohio_df[ohio_df$county == i, ]
+  curr_avg_rate <- mean(county$rate)
+  curr_range <- max(county$rate) - min(county$rate)
+  if(curr_avg_rate > max_avg_rate){
+    max_avg_rate = curr_avg_rate
+    id_max_avg_rate = i
+  }
+  if(curr_avg_rate < min_avg_rate){
+    min_avg_rate = curr_avg_rate
+    id_min_avg_rate = i
+  }
+  if(curr_range > max_range_rate){
+    max_range_rate = curr_range
+    id_max_range_rate = i
+  }
+}
+print(id_max_avg_rate)
+print(id_min_avg_rate)
+print(id_max_range_rate)
+
+
+
+counties = c(id_max_avg_rate, id_min_avg_rate, id_max_range_rate, 4)
+
+#Produces plot of fitted vs true for
+# first frame: county w. largest average rate
+# second frame: county w. smallest average rate
+# third frame: county w. largest range in rate
+# fourth frame: a random county
+select_county_timeseries(ohio_df,
+                         RW1_ICAR_fit,
+                         RW1_ICAR_II_fit,
+                         proper_interaction_fit,
+                         counties,
+                         n,
+                         T)
+
+
+#somehow need to sort the fitted values for the proper models
+proper_interaction_fit$summary.fitted.values
+
+proper_interaction_fit$summary.random$county
+
+#Just make sure that sorter of proper models work
+#test <- sort_proper_fitted(ohio_df_changed, n, T)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####
 #Fitted values of best model against true values 
 plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
                                RW1_ICAR_II_fit, n, T)
-
-
-#Plot fitted-values for certain regions against true values (as time series)
-counties = c(3, 18, 33, 48, 66, 78)
-every_county_time_series(RW1_ICAR_II_fit, ohio_df, 
-                         counties, n, T)
 
 #####
 #Plot the heatmaps of some years (1968, 1973, 1978, 1983, 1988 maybe?) for some models

@@ -86,6 +86,14 @@ print_cpo_etc <- function(fitted_model, time_obj){
   print(c("Time to compute", toString(round(time_obj, 3))))
 }
 
+#Function to sort proper models so that data appears in same order as for improper
+sort_proper_fitted <- function(proper_fitted, n, T){
+  sorted_proper_fitted <- proper_fitted
+  for(t in 1:T){
+    sorted_proper_fitted[((t-1)*n + 1):(t*n), ] =  proper_fitted[seq(t, n*T, by = T),]
+  }
+  return(sorted_proper_fitted)
+}
 
 #Plot the intercept
 plot_intercept <- function(improper_base, proper_base){
@@ -850,6 +858,67 @@ plot_std_interactions_RW2 <- function(typeI,
 
 
 #Plot precision of proper interaction
+plot_proper_hyperparameters <- function(interaction_only, full){
+  #Transform from precision to standard deviation
+  std_interaction_only <- inla.tmarginal(function(x) sqrt(1/x),
+                                 interaction_only$marginals.hyperpar$`Precision for county`)
+  
+  std_interaction_full <- inla.tmarginal(function(x) sqrt(1/x),
+                                         full$marginals.hyperpar$`Precision for county.copy`)
+  
+  std.df <- data.frame(x_axis = c(std_interaction_only[, 1], std_interaction_full[, 1]),
+                       y_axis = c(std_interaction_only[, 2], std_interaction_full[, 2]),
+                       type = c(rep("Interaction only", length(std_interaction_only[, 1])),
+                                rep("Full model", length(std_interaction_full[, 1]))))
+  
+  std_plot <- ggplot(data=std.df,
+                     aes(x=x_axis, group=type, fill=type)) +
+                     geom_density(adjust=1.5, alpha=.8) +
+                     theme_bw() +
+                     labs(fill = NULL) +
+                     theme(axis.title=element_text(size=14)) +
+                     xlab(expression(sigma)) + ylab(expression(f(sigma)))
+  
+  
+  interaction_lambda <- interaction_only$marginals.hyperpar$`Lambda for county`
+  full_lambda <- full$marginals.hyperpar$`Lambda for county.copy`
+  
+  lambda.df <- data.frame(x_axis = c(interaction_lambda[, 1], full_lambda[, 1]),
+                          y_axis = c(interaction_lambda[, 2], full_lambda[, 2]),
+                          type = c(rep("Interaction only", length(interaction_lambda[, 1])),
+                                   rep("Full model", length(full_lambda[, 1]))))
+  
+  lambda_plot <- ggplot(data=lambda.df,
+                        aes(x=x_axis, group=type, fill=type)) +
+                        geom_density(adjust=3, alpha=.8) +
+                        theme_bw() +
+                        labs(fill = NULL) +
+                        theme(axis.title=element_text(size=14)) +
+                        xlab(expression(lambda)) + ylab(expression(f(lambda)))
+  
+  
+  interaction_rho <- interaction_only$marginals.hyperpar$`GroupRho for county`
+  full_rho <- full$marginals.hyperpar$`GroupRho for county.copy`
+  
+  rho.df <- data.frame(x_axis = c(interaction_rho[, 1], full_rho[, 1]),
+                       y_axis = c(interaction_rho[, 2], full_rho[, 2]),
+                       type = c(rep("Interaction only", length(interaction_rho[, 1])),
+                                rep("Full model", length(full_rho[, 1]))))
+  
+  
+  rho_plot <- ggplot(data=rho.df,
+                        aes(x=x_axis, group=type, fill=type)) +
+                        geom_density(adjust=5, alpha=.8) +
+                        theme_bw() +
+                        labs(fill = NULL) +
+                        theme(axis.title=element_text(size=14)) +
+                        xlab(expression(rho)) + ylab(expression(f(rho)))
+  
+  
+  ggarrange(std_plot, lambda_plot, rho_plot,
+            ncol = 3, nrow = 1,
+            common.legend = TRUE, legend = "right")
+}
 
 
 
@@ -904,119 +973,78 @@ plot_fitted_vs_actual_together <- function(actual_data,
 
 
 
-#Plot a time series for every county showing fitted values vs actual values
-every_county_time_series <- function(fitted_model,
-                                     actual,
+#Plot a time series for a county showing fitted values vs actual values
+county_time_series <- function(actual,
+                               fitted_model,
+                               county,
+                               n, T,
+                               title = TRUE,
+                               xlab,
+                               ylab){
+  years <- 1968:1988
+  values.df <- data.frame(years = years, 
+                          true_rate = actual$rate[seq(county, n*T, by = n)] * 1E5,
+                          fitted_rate = fitted_model$summary.fitted.values[seq(county,n*T,by=n), 4] * 1E5,
+                          lower_quant = fitted_model$summary.fitted.values[seq(county,n*T,by=n), 3] * 1E5,
+                          upper_quant = fitted_model$summary.fitted.values[seq(county,n*T,by=n), 5] * 1E5)
+  if(title){
+  plt <- ggplot(data = values.df, aes(x = years)) + 
+          geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                      fill = "pink", alpha = 0.6) +
+          geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+          geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+          xlab(xlab) + ylab(ylab) + ggtitle(actual[county, ]$name) +
+          labs(col = NULL) +
+          theme_bw()
+  } else {
+    plt <- ggplot(data = values.df, aes(x = years)) + 
+      geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                  fill = "pink", alpha = 0.6) +
+      geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+      geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+      xlab(xlab) + ylab(ylab) +
+      labs(col = NULL) +
+      theme_bw()
+  }
+  return(plt)
+}
+
+select_county_timeseries <- function(actual_data,
+                                     base_model, 
+                                     RW1_II,
+                                     proper_interaction,
                                      counties,
                                      n, T){
-  years <- 1968:1988
-  #Format for plotting
+  base_plt1 <- county_time_series(actual_data, base_model, counties[1], n, T, title = T, xlab = "", ylab = "Rate pr. 100000")
+  base_plt2 <- county_time_series(actual_data, base_model, counties[2], n, T, title = T, xlab = "", ylab = "")
+  base_plt3 <- county_time_series(actual_data, base_model, counties[3], n, T, title = T, xlab = "", ylab = "")
+  base_plt4 <- county_time_series(actual_data, base_model, counties[4], n, T, title = T, xlab = "", ylab = "")
   
-  c = counties[1]
-  county1 <- data.frame(years = years, 
-                        true_rate = actual$rate[seq(c, n*T, by = n)],
-                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
-                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
-                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  II_plt1 <- county_time_series(actual_data, RW1_II, counties[1], n, T, title = F, xlab = "", ylab = "Rate pr. 100000")
+  II_plt2 <- county_time_series(actual_data, RW1_II, counties[2], n, T, title = F, xlab = "", ylab = "")
+  II_plt3 <- county_time_series(actual_data, RW1_II, counties[3], n, T, title = F, xlab = "", ylab = "")
+  II_plt4 <- county_time_series(actual_data, RW1_II, counties[4], n, T, title = F, xlab = "", ylab = "")
   
-  c = counties[2]
-  county2 <- data.frame(years = years, 
-                        true_rate = actual$rate[seq(c, n*T, by = n)],
-                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
-                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
-                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  #Proper models must be sorted first
+  proper_interaction$summary.fitted.values <- sort_proper_fitted(proper_interaction$summary.fitted.values,
+                                                                 n, T)
   
-  c = counties[3]
-  county3 <- data.frame(years = years, 
-                        true_rate = actual$rate[seq(c, n*T, by = n)],
-                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
-                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
-                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
+  proper_plt1 <- county_time_series(actual_data, proper_interaction, counties[1], n, T, title = F, xlab = "year", ylab = "Rate pr. 100000")
+  proper_plt2 <- county_time_series(actual_data, proper_interaction, counties[2], n, T, title = F, xlab = "year", ylab = "")
+  proper_plt3 <- county_time_series(actual_data, proper_interaction, counties[3], n, T, title = F, xlab = "year", ylab = "")
+  proper_plt4 <- county_time_series(actual_data, proper_interaction, counties[4], n, T, title = F, xlab = "year", ylab = "")
   
-  c = counties[4]
-  county4 <- data.frame(years = years, 
-                        true_rate = actual$rate[seq(c, n*T, by = n)],
-                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
-                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
-                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
-  
-  c = counties[5]
-  county5 <- data.frame(years = years, 
-                        true_rate = actual$rate[seq(c, n*T, by = n)],
-                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
-                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
-                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
-  
-  c = counties[6]
-  county6 <- data.frame(years = years, 
-                        true_rate = actual$rate[seq(c, n*T, by = n)],
-                        fitted_rate = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 4],
-                        lower_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 3],
-                        upper_quant = fitted_model$summary.fitted.values[seq(c,n*T,by=n), 5])
-  
- 
-  
-  plt1 <- ggplot(data = county1, aes(x = years)) + 
-    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
-                fill = "pink", alpha = 0.6) +
-    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
-    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[1], ]$name) +
-    labs(col = NULL) +
-    theme_bw()
-  
-  plt2 <- ggplot(data = county2, aes(x = years)) + 
-    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
-                fill = "pink", alpha = 0.6) +
-    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
-    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[2], ]$name) +
-    labs(col = NULL) +
-    theme_bw()
-  
-  plt3 <- ggplot(data = county3, aes(x = years)) + 
-    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
-                fill = "pink", alpha = 0.6) +
-    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
-    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[3], ]$name) +
-    labs(col = NULL) +
-    theme_bw()
-  
-  plt4 <- ggplot(data = county4, aes(x = years)) + 
-    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
-                fill = "pink", alpha = 0.6) +
-    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
-    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[4], ]$name) +
-    labs(col = NULL) +
-    theme_bw()
-  
-  plt5 <- ggplot(data = county5, aes(x = years)) + 
-    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
-                fill = "pink", alpha = 0.6) +
-    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
-    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[5], ]$name) +
-    labs(col = NULL) +
-    theme_bw()
-  
-  plt6 <- ggplot(data = county6, aes(x = years)) + 
-    geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
-                fill = "pink", alpha = 0.6) +
-    geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-    geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
-    xlab("year") + ylab("Relative Risk") + ggtitle(actual[counties[6], ]$name) +
-    labs(col = NULL) +
-    theme_bw()
-  
-  ggarrange(plt1, plt2, plt3,
-            plt4, plt5, plt6,
-            ncol = 2, nrow = 3,
-            common.legend = TRUE,
-            legend = "right")
+  ggarrange(base_plt1, base_plt2, base_plt3, base_plt4,
+            II_plt1, II_plt2, II_plt3, II_plt4,
+            proper_plt1, proper_plt2, proper_plt3, proper_plt4,
+            ncol = 4, nrow = 3, 
+            common.legend = TRUE, legend = "right")
   
 }
+
+
+
+
 
 
 
