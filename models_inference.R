@@ -11,7 +11,8 @@ library(ggplot2)
 library(ggspatial)
 library(gridExtra)
 library(ggpubr)
-
+library(latex2exp)
+library(tables)
 
 #Set working directory
 if(getwd() != "C:/Users/joste/Documents/H2023/Code/Prosjektoppgave"){
@@ -28,10 +29,10 @@ load("proper_fitted.RData")#; load("")
 ################################################################################
 #Create latex table with results
 #Format results data.frame for latex table
-results.df <- data.frame(Model = rep(c("1", "2", "3", "4", "5"), 3),
-                         RW = c(rep("1", 15), rep("2", 15)),
-                         model_choice = rep(c("1", "2", "3"), 10),
-                         value = 1:30)
+improper_results.df <- data.frame(Interaction = rep(c("1", "2", "3", "4", "5"), 3),
+                                  RW = c(rep("1", 15), rep("2", 15)),
+                                  model_choice = rep(c("1", "2", "3"), 10),
+                                  value = 1:30)
 
 
 #model = 1 -> base, model = 2 -> type I,..., model = 5 -> type IV
@@ -40,80 +41,140 @@ results.df <- data.frame(Model = rep(c("1", "2", "3", "4", "5"), 3),
 
 #Insert values into table
 #RW1 base model
-results.df$value[results.df$RW == "1" & results.df$Model == "1" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_fit$cpo$cpo))
-results.df$value[results.df$RW == "1" & results.df$Model == "1" & results.df$model_choice == "2"] = RW1_ICAR_fit$waic$waic
-results.df$value[results.df$RW == "1" & results.df$Model == "1" & results.df$model_choice == "3"] = time_RW1_ICAR
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "2"] = RW1_ICAR_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "3"] = time_RW1_ICAR
 
 #RW1 type I
-results.df$value[results.df$RW == "1" & results.df$Model == "2" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_I_fit$cpo$cpo))
-results.df$value[results.df$RW == "1" & results.df$Model == "2" & results.df$model_choice == "2"] = RW1_ICAR_I_fit$waic$waic
-results.df$value[results.df$RW == "1" & results.df$Model == "2" & results.df$model_choice == "3"] = time_RW1_ICAR_I
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_I_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "2"] = RW1_ICAR_I_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "3"] = time_RW1_ICAR_I
 
 #RW1 type II
-results.df$value[results.df$RW == "1" & results.df$Model == "3" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_II_fit$cpo$cpo))
-results.df$value[results.df$RW == "1" & results.df$Model == "3" & results.df$model_choice == "2"] = RW1_ICAR_II_fit$waic$waic
-results.df$value[results.df$RW == "1" & results.df$Model == "3" & results.df$model_choice == "3"] = time_RW1_ICAR_II
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_II_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "2"] = RW1_ICAR_II_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "3"] = time_RW1_ICAR_II
 
 #RW1 type III
-results.df$value[results.df$RW == "1" & results.df$Model == "4" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_III_fit$cpo$cpo))
-results.df$value[results.df$RW == "1" & results.df$Model == "4" & results.df$model_choice == "2"] = RW1_ICAR_III_fit$waic$waic
-results.df$value[results.df$RW == "1" & results.df$Model == "4" & results.df$model_choice == "3"] = time_RW1_ICAR_III
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_III_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "2"] = RW1_ICAR_III_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "3"] = time_RW1_ICAR_III
 
 #RW1 Type IV
-results.df$value[results.df$RW == "1" & results.df$Model == "5" & results.df$model_choice == "1"] = mean(-log(RW1_ICAR_IV_fit$cpo$cpo))
-results.df$value[results.df$RW == "1" & results.df$Model == "5" & results.df$model_choice == "2"] = RW1_ICAR_IV_fit$waic$waic
-results.df$value[results.df$RW == "1" & results.df$Model == "5" & results.df$model_choice == "3"] = time_RW1_ICAR_IV
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_IV_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "2"] = RW1_ICAR_IV_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "3"] = time_RW1_ICAR_IV
 
 #RW2 base model
-results.df$value[results.df$RW == "2" & results.df$Model == "1" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_fit$cpo$cpo))
-results.df$value[results.df$RW == "2" & results.df$Model == "1" & results.df$model_choice == "2"] = RW2_ICAR_fit$waic$waic
-results.df$value[results.df$RW == "2" & results.df$Model == "1" & results.df$model_choice == "3"] = time_RW2_ICAR
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "2"] = RW2_ICAR_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "3"] = time_RW2_ICAR
 
 #RW2 type I
-results.df$value[results.df$RW == "2" & results.df$Model == "2" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_I_fit$cpo$cpo))
-results.df$value[results.df$RW == "2" & results.df$Model == "2" & results.df$model_choice == "2"] = RW2_ICAR_I_fit$waic$waic
-results.df$value[results.df$RW == "2" & results.df$Model == "2" & results.df$model_choice == "3"] = time_RW2_ICAR_I
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_I_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "2"] = RW2_ICAR_I_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "3"] = time_RW2_ICAR_I
 
 #RW2 type II
-results.df$value[results.df$RW == "2" & results.df$Model == "3" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_II_fit$cpo$cpo))
-results.df$value[results.df$RW == "2" & results.df$Model == "3" & results.df$model_choice == "2"] = RW2_ICAR_II_fit$waic$waic
-results.df$value[results.df$RW == "2" & results.df$Model == "3" & results.df$model_choice == "3"] = time_RW2_ICAR_II
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_II_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "2"] = RW2_ICAR_II_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "3"] = time_RW2_ICAR_II
 
 #RW2 type III
-results.df$value[results.df$RW == "2" & results.df$Model == "4" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_III_fit$cpo$cpo))
-results.df$value[results.df$RW == "2" & results.df$Model == "4" & results.df$model_choice == "2"] = RW2_ICAR_III_fit$waic$waic
-results.df$value[results.df$RW == "2" & results.df$Model == "4" & results.df$model_choice == "3"] = time_RW2_ICAR_III
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_III_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "2"] = RW2_ICAR_III_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "3"] = time_RW2_ICAR_III
 
 #RW2 Type IV
-results.df$value[results.df$RW == "2" & results.df$Model == "5" & results.df$model_choice == "1"] = mean(-log(RW2_ICAR_IV_fit$cpo$cpo))
-results.df$value[results.df$RW == "2" & results.df$Model == "5" & results.df$model_choice == "2"] = RW2_ICAR_IV_fit$waic$waic
-results.df$value[results.df$RW == "2" & results.df$Model == "5" & results.df$model_choice == "3"] = time_RW2_ICAR_IV
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_IV_fit$cpo$cpo))
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "2"] = RW2_ICAR_IV_fit$waic$waic
+improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "3"] = time_RW2_ICAR_IV
 
 #Make caption and label for latex table
-caption = "Results"
-label = "tab:all-results"
+caption = "Reported values of CPO, WAIC, and computational time,
+           for improper model specifications.
+          First column indicates whether the structured temporal effect follows a RW1 or RW2.
+          Second column states what type of interaction the model uses.
+          Third column reports the calculated summary statistic of CPO.
+          Fourth column gives the calculated WAIC for each model.
+          Lastly the computational time is reported in the last column."
+label = "improper-results"
 
 #Make latex table
 latex_tabular <- latexTable(tabular(
   Heading()*RowFactor(RW, levelnames = c("RW1", "RW2"))*
-    Heading("Model")*RowFactor(Model, levelnames = c("base model",
-                                              "interaction type I",
-                                              "interaction type II",
-                                              "interaction type III",
-                                              "interaction type IV"),
+    Heading("Interaction")*RowFactor(Interaction, levelnames = c("No interaction",
+                                              "Type I",
+                                              "Type II",
+                                              "Type III",
+                                              "Type IV"),
                         nopagebreak = "\\hline",
                         spacing = 0)~
     Heading()*Factor(model_choice, 
                      levelnames = c("CPO", "WAIC", "Computational time (s)"))*
     Heading()*value*Heading()*identity,
-  data = results.df),
+  data = improper_results.df),
   caption = caption,
   label = label
 )
 latex_tabular
 
 #Save latex table
-cat(latex_tabular, file = "table.tex")
+cat(latex_tabular, file = "improper_table.tex")
+
+#Make proper table
+proper_results.df <- data.frame(Model = c(rep("1", 3), rep("2", 3), rep("3", 3)),
+                                model_choice = rep(c("1", "2", "3"), 3),
+                                value = 1:9)
+
+# Model = 1 -> proper base model, Model = 2 -> proper interaction only, Model = 3 -> full proper model
+#Model_choice = 1 -> CPO, 2 -> WAIC, 3 -> Computational time
+
+#Proper base results
+proper_results.df$value[proper_results.df$Model == "1" & proper_results.df$model_choice == "1"] = mean(-log(proper_base_fit$cpo$cpo))
+proper_results.df$value[proper_results.df$Model == "1" & proper_results.df$model_choice == "2"] = proper_base_fit$waic$waic
+proper_results.df$value[proper_results.df$Model == "1" & proper_results.df$model_choice == "3"] = time_proper_base
+
+#Proper interaction results
+proper_results.df$value[proper_results.df$Model == "2" & proper_results.df$model_choice == "1"] = mean(-log(proper_interaction_fit$cpo$cpo))
+proper_results.df$value[proper_results.df$Model == "2" & proper_results.df$model_choice == "2"] = proper_interaction_fit$waic$waic
+proper_results.df$value[proper_results.df$Model == "2" & proper_results.df$model_choice == "3"] = time_proper_interaction
+
+#Full proper results
+proper_results.df$value[proper_results.df$Model == "3" & proper_results.df$model_choice == "1"] = mean(-log(proper_full_fit$cpo$cpo))
+proper_results.df$value[proper_results.df$Model == "3" & proper_results.df$model_choice == "2"] = proper_full_fit$waic$waic
+proper_results.df$value[proper_results.df$Model == "3" & proper_results.df$model_choice == "3"] = time_proper_full * 60
+
+#Make caption and label for latex table
+caption_proper = "Reported values of CPO, WAIC, and computational time,
+           for proper model specifications.
+          First column states the model specification.
+          Second column reports the calculated summary statistic of CPO.
+          Third column gives the calculated WAIC for each model.
+          Lastly the computational time is reported in the last column."
+label_proper = "proper-results"
+
+
+#Make table for proper results
+
+#Make latex table
+latex_tabular_proper <- latexTable(tabular(
+    Heading("Model")*RowFactor(Model, levelnames = c("No interaction",
+                                                     "Only interaction",
+                                                     "Full model"),
+                                     nopagebreak = "\\hline",
+                                     spacing = 0)~
+    Heading()*Factor(model_choice, 
+                     levelnames = c("CPO", "WAIC", "Computational time (s)"))*
+    Heading()*value*Heading()*identity,
+  data = proper_results.df),
+  caption = caption_proper,
+  label = label_proper
+)
+latex_tabular_proper
+
+#Save latex table
+cat(latex_tabular_proper, file = "proper_table.tex")
 
 ################################################################################
 

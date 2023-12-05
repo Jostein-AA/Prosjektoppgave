@@ -7,10 +7,6 @@ library(spData)
 library(sf)
 library(spdep)
 
-if(getwd() != "C:/Users/joste/Documents/H2023/Code/Prosjektoppgave"){
-  setwd("H2023/Code/Prosjektoppgave/")
-}
-
 #Load utility functions
 source("utilities.R")
 
@@ -259,18 +255,34 @@ ohio_df_changed$year.copy <- ohio_df_changed$year
 #Define hyperparameters and corresponding priors
 #Define Temporal hyperparameters and corresponding priors
 ar1_hyper = list(prec = list(prior = 'pc.prec', 
-                             param = c(1, 0.005)), #Magic numbers
+                             param = c(1, 0.008)), #Magic numbers
                  rho = list(prior = 'normal', 
-                            param = c(0, 1)), #Magic numbers, second is precision
+                            param = c(0, 0.5)), #Magic numbers
                  mean = list(prior = 'normal',
-                             param = c(0, 2))) #Magic numbers
+                             param = c(0, 2.5))) #Magic numbers
 
 
 #Define Spatial hyperparameters and corresponding priors
 spatial_hyper = list(prec= list(prior = 'pc.prec', 
-                                param = c(1, 0.005)), #Magic numbers
+                                param = c(1, 0.008)), #Magic numbers
                      lambda = list(prior = 'gaussian', 
                                    param = c(0, 1))) #Magic numbers
+
+
+#Define Temporal hyperparameters and corresponding priors
+ar1_hyper_full = list(prec = list(prior = 'pc.prec', 
+                                  param = c(1, 0.005)), #Magic numbers
+                      rho = list(prior = 'normal', 
+                                 param = c(0, 1)), #Magic numbers, second is precision
+                      mean = list(prior = 'normal',
+                                  param = c(0, 2))) #Magic numbers
+
+
+#Define Spatial hyperparameters and corresponding priors
+spatial_hyper_full = list(prec= list(prior = 'pc.prec', 
+                                    param = c(1, 0.005)), #Magic numbers
+                          lambda = list(prior = 'gaussian', 
+                                        param = c(0, 1))) #Magic numbers
 
 
 
@@ -324,15 +336,15 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   proper_full_formula <- deaths ~ 1 + year + 
                                   f(year.copy,
                                     model = "ar1",
-                                    hyper = ar1_hyper) +
+                                    hyper = ar1_hyper_full) +
                                   f(county, 
                                     model = "besagproper2",
                                     graph = ICAR_prec,
-                                    hyper = spatial_hyper) + 
+                                    hyper = spatial_hyper_full) + 
                                   f(county.copy, 
                                     model = "besagproper2",
                                     graph = ICAR_prec,
-                                    hyper = spatial_hyper,
+                                    hyper = spatial_hyper_full,
                                     group = year, 
                                     control.group = list(model = "ar1")) 
   
@@ -391,53 +403,54 @@ save(n, T, ohio_map, ohio_df, ohio_df_changed,
 ####
 #Testing ground
 
+
 #Define Temporal hyperparameters and corresponding priors
-ar1_hyper = list(prec = list(prior = 'pc.prec', 
-                             param = c(1, 0.005)), #Magic numbers
-                 rho = list(prior = 'normal', 
-                            param = c(0, 1)), #Magic numbers, second is precision
-                 mean = list(prior = 'normal',
-                             param = c(0, 2))) #Magic numbers
+#ar1_hyper = list(prec = list(prior = 'pc.prec', 
+#                             param = c(1, 0.005)), #Magic numbers
+#                 rho = list(prior = 'normal', 
+#                            param = c(0, 1)), #Magic numbers, second is precision
+#                 mean = list(prior = 'normal',
+#                             param = c(0, 2))) #Magic numbers
 
 
 #Define Spatial hyperparameters and corresponding priors
-spatial_hyper = list(prec= list(prior = 'pc.prec', 
-                                param = c(1, 0.005)), #Magic numbers
-                     lambda = list(prior = 'gaussian', 
-                                   param = c(0, 1))) #Magic numbers
+#spatial_hyper = list(prec= list(prior = 'pc.prec', 
+#                                param = c(1, 0.005)), #Magic numbers
+#                     lambda = list(prior = 'gaussian', 
+#                                   param = c(0, 1))) #Magic numbers
 
-time = 21
-temp_ohio = ohio_df_changed[ohio_df_changed$year <= time, ] #Extract data in year 1:time
-temp_ohio[temp_ohio$year == time, ]$deaths = NA; rownames(temp_ohio) <- 1:nrow(temp_ohio)
+#time = 21
+#temp_ohio = ohio_df_changed[ohio_df_changed$year <= time, ] #Extract data in year 1:time
+#temp_ohio[temp_ohio$year == time, ]$deaths = NA; rownames(temp_ohio) <- 1:nrow(temp_ohio)
 
-proper_full_formula <- deaths ~ 1 + year + 
-                                f(year.copy,
-                                  model = "ar1",
-                                  hyper = ar1_hyper) +
-                                f(county, 
-                                  model = "besagproper2",
-                                  graph = ICAR_prec,
-                                  hyper = spatial_hyper) + 
-                                f(county.copy, 
-                                  model = "besagproper2",
-                                  graph = ICAR_prec,
-                                  hyper = spatial_hyper,
-                                  group = year, 
-                                  control.group = list(model = "ar1")) 
+#proper_full_formula <- deaths ~ 1 + year + 
+#                                f(year.copy,
+#                                  model = "ar1",
+#                                  hyper = ar1_hyper) +
+#                                f(county, 
+#                                  model = "besagproper2",
+#                                  graph = ICAR_prec,
+#                                  hyper = spatial_hyper) + 
+#                                f(county.copy, 
+#                                  model = "besagproper2",
+ #                                 graph = ICAR_prec,
+#                                  hyper = spatial_hyper,
+#                                  group = year, 
+#                                  control.group = list(model = "ar1")) 
 
 #Yields: enable early_stop ff < f0 AND Mode not sufficient accurate; switch to a stupid local search strategy.
 #Most often
 #Maybe current hyperparameter priors work??? Sufficiently informed priors? Dont think so
-proper_full <- inla(proper_full_formula,
-                    data = temp_ohio,
-                    family = "poisson",
-                    E = pop_at_risk,
-                    control.predictor = list(compute = TRUE),       #For predictions
-                    control.compute = list(return.marginals.predictor=TRUE), #For predictions
-                    control.inla = list(int.strategy = "grid"),
-                    verbose = T)
+#proper_full <- inla(proper_full_formula,
+#                    data = temp_ohio,
+#                    family = "poisson",
+#                    E = pop_at_risk,
+#                    control.predictor = list(compute = TRUE),       #For predictions
+#                    control.compute = list(return.marginals.predictor=TRUE), #For predictions
+#                    control.inla = list(int.strategy = "grid"),
+#                    verbose = T)
 
-plot(proper_full)
+#plot(proper_full)
 
 
 
