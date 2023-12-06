@@ -290,9 +290,9 @@ for(i in 2:n){
     id_max_range_rate = i
   }
 }
-print(id_max_avg_rate)
-print(id_min_avg_rate)
-print(id_max_range_rate)
+#print(id_max_avg_rate)
+#print(id_min_avg_rate)
+#print(id_max_range_rate)
 
 
 
@@ -303,6 +303,7 @@ counties = c(id_max_avg_rate, id_min_avg_rate, id_max_range_rate, 4)
 # second frame: county w. smallest average rate
 # third frame: county w. largest range in rate
 # fourth frame: a random county
+# save pdf: 10 by 7.5 
 select_county_timeseries(ohio_df,
                          RW1_ICAR_fit,
                          RW1_ICAR_II_fit,
@@ -312,13 +313,6 @@ select_county_timeseries(ohio_df,
                          T)
 
 
-#somehow need to sort the fitted values for the proper models
-proper_interaction_fit$summary.fitted.values
-
-proper_interaction_fit$summary.random$county
-
-#Just make sure that sorter of proper models work
-#test <- sort_proper_fitted(ohio_df_changed, n, T)
 
 
 
@@ -326,17 +320,6 @@ proper_interaction_fit$summary.random$county
 
 
 
-
-
-
-
-
-
-
-#####
-#Fitted values of best model against true values 
-plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
-                               RW1_ICAR_II_fit, n, T)
 
 #####
 #Plot the heatmaps of some years (1968, 1973, 1978, 1983, 1988 maybe?) for some models
@@ -344,12 +327,14 @@ plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
 years_to_plot = c(1968, 1975, 1980, 1988)
 
 
+actual = ohio_df
+
 #Extract true values for years_to_plot
-if(ohio_df$year[1]==1){
-  ohio_df$year = ohio_df$year + (1968 - 1)
+if(actual$year[1]==1){
+  actual$year = actual$year + (1968 - 1)
 }
 
-actual <- ohio_df[ohio_df$year %in% years_to_plot, ]
+actual <- actual[actual$year %in% years_to_plot, ]
 
 #Merge true values with map
 actual_n_map <- merge(ohio_map, actual,
@@ -421,9 +406,10 @@ rates.df <- data.frame(fitted_rates = c(RW1_ICAR_fit$summary.fitted.values$mean,
 violin_plot_rate(rates.df)
 
 
-#Observed vs predicted plots as lines???
-
-
+#####
+#Fitted values of best model against true values 
+plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
+                               RW1_ICAR_II_fit, n, T)
 
 ############
 ##One-step predictor ...
@@ -455,11 +441,46 @@ crpsNormal <- function(x, mu = 0, sig = 1){
   return(res)
 }
 
+abs_error <- function(x, mu = 0){
+  return(x - mu)
+}
+
+#Get log of rate (is assumed Gaussian)
+ohio_df$log.rate <- log(ohio_df$rate)
+years_predicted_on <- 12:21
+#Extract values for our years and check none are -Inf
+values_predicted_on <- ohio_df$log.rate[ohio_df$year %in% years_predicted_on]
+
+#test if some values are -Inf:
+print(sum(is.infinite(values_predicted_on))) #No values are Inf here, whoop whoop
+
+hist(values_predicted_on, breaks = 25)
+matplot(I_predicted[1, 1][[1]][, 1], I_predicted[1, 1][[1]][, 2])
+
+find_mean_marginal(I_predicted[1, 1])
+find_sd_marginal(I_predicted[1, 1])
 
 
-#Do NOT need inla.tmarginal() here, as we actually look directly at the linear predictor
+
+find_CRPS_one_year <- function(marginals, true, year){
+  crps = rep(0, n)
+  mean = rep(0, n)
+  sd = rep(0, n)
+  
+  for(i in 1:n){
+    mean[i] = find_mean_marginal(marginals[year, i])
+    sd[i] = find_sd_marginal(marginals[year, i])
+    crps[i] = crpsNormal(true[((year - 1) * n + i)], mu = mean[i], sig = sd[i])
+  }
+  return(list(crps = crps, mean = mean, sd = sd))
+}
+test = find_CRPS_one_year(I_predicted, values_predicted_on, 1)
+plot(1:88, test$crps)
+
+
 
 #Find mean of linear predictor from marginal
+
 
 #Find Standard Deviation of linear predictor from marginal
 

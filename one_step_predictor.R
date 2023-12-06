@@ -201,7 +201,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   
   #Extract marginal of linear predictor predictive distribution
   #Save the linear predictor marginals because this is what we will use for CRPS
-  base_prediction_marginals = base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  base_prediction_marginals = base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)] 
   I_prediction_marginals = RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   II_prediction_marginals = RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   III_prediction_marginals = RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
@@ -362,10 +362,15 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   
   print("proper full")
   
-  #Save the linear predictor marginals because this is what we will use for CRPS
-  proper_base_marginals = proper_base$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  proper_interactions_marginals = proper_interaction$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  proper_full_marginals = proper_full$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  #Have to sort the fitted/predicted values because they are in different order to the improper ones
+  proper_base_marginals         = sort_proper_fitted_2(proper_base$marginals.fitted.values, n, time)
+  proper_interactions_marginals = sort_proper_fitted_2(proper_interaction$marginals.fitted.values, n, time)
+  proper_full_marginals         = sort_proper_fitted_2(proper_full$marginals.fitted.values, n, time)
+  
+  #Save the linear predictor marginals because this is what we will use for CRPS, AE
+  proper_base_marginals         = proper_base_marginals[(n * (time - 1) + 1):(n * time)]
+  proper_interactions_marginals = proper_interactions_marginals[(n * (time - 1) + 1):(n * time)]
+  proper_full_marginals         = proper_full_marginals[(n * (time - 1) + 1):(n * time)]
   
   if(time == 12){
     proper_base_predicted        = proper_base_marginals
@@ -400,57 +405,6 @@ save(n, T, ohio_map, ohio_df, ohio_df_changed,
      file = "one_step_predictions.RData")
 
 
-####
-#Testing ground
-
-
-#Define Temporal hyperparameters and corresponding priors
-#ar1_hyper = list(prec = list(prior = 'pc.prec', 
-#                             param = c(1, 0.005)), #Magic numbers
-#                 rho = list(prior = 'normal', 
-#                            param = c(0, 1)), #Magic numbers, second is precision
-#                 mean = list(prior = 'normal',
-#                             param = c(0, 2))) #Magic numbers
-
-
-#Define Spatial hyperparameters and corresponding priors
-#spatial_hyper = list(prec= list(prior = 'pc.prec', 
-#                                param = c(1, 0.005)), #Magic numbers
-#                     lambda = list(prior = 'gaussian', 
-#                                   param = c(0, 1))) #Magic numbers
-
-#time = 21
-#temp_ohio = ohio_df_changed[ohio_df_changed$year <= time, ] #Extract data in year 1:time
-#temp_ohio[temp_ohio$year == time, ]$deaths = NA; rownames(temp_ohio) <- 1:nrow(temp_ohio)
-
-#proper_full_formula <- deaths ~ 1 + year + 
-#                                f(year.copy,
-#                                  model = "ar1",
-#                                  hyper = ar1_hyper) +
-#                                f(county, 
-#                                  model = "besagproper2",
-#                                  graph = ICAR_prec,
-#                                  hyper = spatial_hyper) + 
-#                                f(county.copy, 
-#                                  model = "besagproper2",
- #                                 graph = ICAR_prec,
-#                                  hyper = spatial_hyper,
-#                                  group = year, 
-#                                  control.group = list(model = "ar1")) 
-
-#Yields: enable early_stop ff < f0 AND Mode not sufficient accurate; switch to a stupid local search strategy.
-#Most often
-#Maybe current hyperparameter priors work??? Sufficiently informed priors? Dont think so
-#proper_full <- inla(proper_full_formula,
-#                    data = temp_ohio,
-#                    family = "poisson",
-#                    E = pop_at_risk,
-#                    control.predictor = list(compute = TRUE),       #For predictions
-#                    control.compute = list(return.marginals.predictor=TRUE), #For predictions
-#                    control.inla = list(int.strategy = "grid"),
-#                    verbose = T)
-
-#plot(proper_full)
 
 
 

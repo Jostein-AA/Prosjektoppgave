@@ -87,12 +87,30 @@ print_cpo_etc <- function(fitted_model, time_obj){
 }
 
 #Function to sort proper models so that data appears in same order as for improper
-sort_proper_fitted <- function(proper_fitted, n, T){
+sort_proper_fitted <- function(proper_fitted, n, time){
   sorted_proper_fitted <- proper_fitted
-  for(t in 1:T){
-    sorted_proper_fitted[((t-1)*n + 1):(t*n), ] =  proper_fitted[seq(t, n*T, by = T),]
+  for(t in 1:time){
+    sorted_proper_fitted[((t-1)*n + 1):(t*n), ] =  proper_fitted[seq(t, n*time, by = time), ]
   }
   return(sorted_proper_fitted)
+}
+
+sort_proper_fitted_2 <- function(proper_fitted, n, time){
+  sorted_proper_fitted <- proper_fitted
+  for(t in 1:time){
+    sorted_proper_fitted[((t-1)*n + 1):(t*n)] =  proper_fitted[seq(t, n*time, by = time)]
+  }
+  return(sorted_proper_fitted)
+}
+
+#Function to find mean fitted linear predictor marginal for singular instance
+find_mean_marginal <- function(marginal){
+  return(mean(marginal[[1]][, 1]))
+}
+
+#Function to find standard deviation of fitted linear predictor marginal for singular instance
+find_sd_marginal <- function(marginal){
+  return(sd(marginal[[1]][, 1]))
 }
 
 #Plot the intercept
@@ -591,12 +609,12 @@ plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
   
   
   
-  
+  library(latex2exp)
   rw1_I_plot <- ggplot(data = rw1_I.df, aes(x = x_axis)) + 
                   geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
                               fill = "lightgrey", alpha = 0.6) +
                   geom_line(aes(y = median, col = "Median")) +
-                  xlab("space.time") + ylab("Type I Interaction") + 
+                  xlab("") + ylab("Type I Interaction") + ggtitle(TeX('$\\alpha_{t}$: RW1')) +
                   theme_bw() + 
                   labs(col = NULL) 
   
@@ -604,7 +622,7 @@ plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
     geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
                 fill = "lightgrey", alpha = 0.6) +
     geom_line(aes(y = median, col = "Median")) +
-    xlab("space.time") + ylab("Type I Interaction") + 
+    xlab("") + ylab("") + ggtitle(TeX('$\\alpha_{t}$: RW2')) +
     theme_bw() + 
     labs(col = NULL) 
   
@@ -612,7 +630,7 @@ plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
     geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
                 fill = "lightgrey", alpha = 0.6) +
     geom_line(aes(y = median, col = "Median")) +
-    xlab("space.time") + ylab("Type II Interaction") + 
+    xlab("") + ylab("Type II Interaction") + 
     theme_bw() + 
     labs(col = NULL) 
   
@@ -620,7 +638,7 @@ plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
     geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
                 fill = "lightgrey", alpha = 0.6) +
     geom_line(aes(y = median, col = "Median")) +
-    xlab("space.time") + ylab("Type II Interaction") + 
+    xlab("") + ylab("") + 
     theme_bw() + 
     labs(col = NULL) 
   
@@ -628,7 +646,7 @@ plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
     geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
                 fill = "lightgrey", alpha = 0.6) +
     geom_line(aes(y = median, col = "Median")) +
-    xlab("space.time") + ylab("Type III Interaction") + 
+    xlab("") + ylab("Type III Interaction") + 
     theme_bw() + 
     labs(col = NULL) 
   
@@ -636,7 +654,7 @@ plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
     geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
                 fill = "lightgrey", alpha = 0.6) +
     geom_line(aes(y = median, col = "Median")) +
-    xlab("space.time") + ylab("Type III Interaction") + 
+    xlab("") + ylab("") + 
     theme_bw() + 
     labs(col = NULL) 
   
@@ -652,7 +670,7 @@ plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
     geom_ribbon(aes(ymin = lower_quant, ymax = upper_quant, col = "95% CI"),
                 fill = "lightgrey", alpha = 0.6) +
     geom_line(aes(y = median, col = "Median")) +
-    xlab("space.time") + ylab("Type IV Interaction") + 
+    xlab("space.time") + ylab("") + 
     theme_bw() + 
     labs(col = NULL) 
   
@@ -712,6 +730,10 @@ plot_improper_interaction <- function(rw1_I, rw1_II, rw1_III, rw1_IV,
 plot_proper_interaction <- function(proper_interaction, proper_full){
   #want to restructure to get year over county
   x_axis = 1:length(proper_interaction$summary.random$county[ , 5])
+  
+  #maybe sort the interactions
+  #proper_interaction$summary.random$county = sort_proper_fitted(proper_interaction$summary.random$county, n, T)
+  
   
   #Format for ggplot
   only_interaction.df <- data.frame(x_axis = x_axis,
@@ -990,7 +1012,7 @@ county_time_series <- function(actual,
   if(title){
   plt <- ggplot(data = values.df, aes(x = years)) + 
           geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
-                      fill = "pink", alpha = 0.6) +
+                      fill = "#F8766D", alpha = 0.6) +
           geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
           geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
           xlab(xlab) + ylab(ylab) + ggtitle(actual[county, ]$name) +
@@ -999,13 +1021,14 @@ county_time_series <- function(actual,
   } else {
     plt <- ggplot(data = values.df, aes(x = years)) + 
       geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
-                  fill = "pink", alpha = 0.6) +
+                  fill = "#F8766D", alpha = 0.6) +
       geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
       geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
       xlab(xlab) + ylab(ylab) +
       labs(col = NULL) +
       theme_bw()
   }
+  plt <- plt + scale_color_manual(values=c("#F8766D", "black", "#00BFC4"))
   return(plt)
 }
 
