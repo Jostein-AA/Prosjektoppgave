@@ -446,21 +446,17 @@ abs_error <- function(x, mu = 0){
 }
 
 #Get log of rate (is assumed Gaussian)
-ohio_df$log.rate <- log(ohio_df$rate)
 years_predicted_on <- 12:21
+
 #Extract values for our years and check none are -Inf
-values_predicted_on <- ohio_df$log.rate[ohio_df$year %in% years_predicted_on]
+values_predicted_on <- ohio_df$rate[ohio_df$year %in% years_predicted_on]
 
 #test if some values are -Inf:
 print(sum(is.infinite(values_predicted_on))) #No values are Inf here, whoop whoop
 
-hist(values_predicted_on, breaks = 25)
-matplot(I_predicted[1, 1][[1]][, 1], I_predicted[1, 1][[1]][, 2])
-
-find_mean_marginal(I_predicted[1, 1])
-find_sd_marginal(I_predicted[1, 1])
-
-
+#hist(values_predicted_on[1:88])
+#hist(values_predicted_on)
+#matplot(I_predicted[1, 1][[1]][, 1], I_predicted[1, 1][[1]][, 2])
 
 find_CRPS_one_year <- function(marginals, true, year){
   crps = rep(0, n)
@@ -475,9 +471,21 @@ find_CRPS_one_year <- function(marginals, true, year){
   return(list(crps = crps, mean = mean, sd = sd))
 }
 test = find_CRPS_one_year(I_predicted, values_predicted_on, 1)
-plot(1:88, test$crps)
+#plot(1:88, test$crps)
+find_CRPS_all_years <- function(marginals, true){
+  y1 <- find_CRPS_one_year(marginals, true, 1); y2 <- find_CRPS_one_year(marginals, true, 2)
+  y3 <- find_CRPS_one_year(marginals, true, 3); y4 <- find_CRPS_one_year(marginals, true, 4)
+  y5 <- find_CRPS_one_year(marginals, true, 5); y6 <- find_CRPS_one_year(marginals, true, 6)
+  y7 <- find_CRPS_one_year(marginals, true, 7); y8 <- find_CRPS_one_year(marginals, true, 8)
+  y9 <- find_CRPS_one_year(marginals, true, 9); y10 <- find_CRPS_one_year(marginals, true, 10)
+  
+  combined.df <- data.frame(county = 1:88)
+}
 
-
+find_CRPS_all_years(I_predicted, values_predicted_on)
+#for(t in 1:10){
+#  test[t] = find_CRPS_one_year(I_predicted, values_predicted_on, t)
+#}
 
 #Find mean of linear predictor from marginal
 

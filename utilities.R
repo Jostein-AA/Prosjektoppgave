@@ -113,6 +113,12 @@ find_sd_marginal <- function(marginal){
   return(sd(marginal[[1]][, 1]))
 }
 
+#Function used to go from linear predictor marginal to fitted rate marginal
+my_inla_t_marginal <- function(prediction_marginal){
+  #a function to use inla.tmarginal on several values at once
+  return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
+}
+
 #Plot the intercept
 plot_intercept <- function(improper_base, proper_base){
   #Format intercept for ggplot

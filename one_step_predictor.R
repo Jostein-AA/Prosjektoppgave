@@ -199,13 +199,25 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   
   print("IV")
   
+  
+  #base_predicted = lapply(base_prediction_marginals, FUN = my_inla_t_marginal)
+  #I_predicted = lapply(I_prediction_marginals, FUN = my_inla_t_marginal)
+  #II_predicted = lapply(II_prediction_marginals, FUN = my_inla_t_marginal)
+  #III_predicted = lapply(III_prediction_marginals, FUN = my_inla_t_marginal)
+  #IV_predicted = lapply(IV_prediction_marginals, FUN = my_inla_t_marginal)
+  
   #Extract marginal of linear predictor predictive distribution
   #Save the linear predictor marginals because this is what we will use for CRPS
-  base_prediction_marginals = base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)] 
-  I_prediction_marginals = RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  II_prediction_marginals = RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  III_prediction_marginals = RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  IV_prediction_marginals = RW1_ICAR_IV_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  base_prediction_marginals = lapply(base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                     FUN = my_inla_t_marginal) #base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)] 
+  I_prediction_marginals =    lapply(RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                     FUN = my_inla_t_marginal)#RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  II_prediction_marginals =   lapply(RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                     FUN = my_inla_t_marginal)#RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  III_prediction_marginals =  lapply(RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                     FUN = my_inla_t_marginal)#RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+  IV_prediction_marginals =   lapply(RW1_ICAR_IV_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                     FUN = my_inla_t_marginal)#RW1_ICAR_IV_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
   
   if(time == 12){
     base_predicted = base_prediction_marginals
@@ -368,9 +380,12 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   proper_full_marginals         = sort_proper_fitted_2(proper_full$marginals.fitted.values, n, time)
   
   #Save the linear predictor marginals because this is what we will use for CRPS, AE
-  proper_base_marginals         = proper_base_marginals[(n * (time - 1) + 1):(n * time)]
-  proper_interactions_marginals = proper_interactions_marginals[(n * (time - 1) + 1):(n * time)]
-  proper_full_marginals         = proper_full_marginals[(n * (time - 1) + 1):(n * time)]
+  proper_base_marginals         = lapply(proper_base_marginals[(n * (time - 1) + 1):(n * time)],
+                                         FUN = my_inla_t_marginal)#proper_base_marginals[(n * (time - 1) + 1):(n * time)]
+  proper_interactions_marginals = lapply(proper_interactions_marginals[(n * (time - 1) + 1):(n * time)],
+                                         FUN = my_inla_t_marginal)#proper_interactions_marginals[(n * (time - 1) + 1):(n * time)]
+  proper_full_marginals         = lapply(proper_full_marginals[(n * (time - 1) + 1):(n * time)],
+                                         FUN = my_inla_t_marginal)#proper_full_marginals[(n * (time - 1) + 1):(n * time)]
   
   if(time == 12){
     proper_base_predicted        = proper_base_marginals
@@ -403,14 +418,6 @@ save(n, T, ohio_map, ohio_df, ohio_df_changed,
      proper_interaction_predicted,
      proper_full_predicted,
      file = "one_step_predictions.RData")
-
-
-
-
-
-
-
-
 
 
 
