@@ -416,92 +416,101 @@ plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
 
 #Function to use inla.tmarginal in lapply
 
-#my_inla_t_marginal <- function(prediction_marginal){
-  #a function to use inla.tmarginal on several values at once
-#  return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
-#}
 
-#base_predicted = lapply(base_prediction_marginals, FUN = my_inla_t_marginal)
-#I_predicted = lapply(I_prediction_marginals, FUN = my_inla_t_marginal)
-#II_predicted = lapply(II_prediction_marginals, FUN = my_inla_t_marginal)
-#III_predicted = lapply(III_prediction_marginals, FUN = my_inla_t_marginal)
-#IV_predicted = lapply(IV_prediction_marginals, FUN = my_inla_t_marginal)
 
-crpsNormal <- function(x, mu = 0, sig = 1){
-  ## Function to compute the CRPS under normality assumption
-  ## Here: x denotes the actual observation and mu and sigma
-  ## mean and sd of the predictive distribution.
-  ## (see Held et al. (2010), page 1296
-  
-  x0 <- (x - mu) / sig
-  res <- sig * (1 / sqrt(pi) -  2 * dnorm(x0) - x0 * (2 * pnorm(x0) - 1))
-  
-  ## sign as in Held (2008)
-  res <- -res
-  return(res)
-}
 
-abs_error <- function(x, mu = 0){
-  return(x - mu)
-}
-
-#Get log of rate (is assumed Gaussian)
 years_predicted_on <- 12:21
 
 #Extract values for our years and check none are -Inf
-values_predicted_on <- ohio_df$rate[ohio_df$year %in% years_predicted_on]
-
-#test if some values are -Inf:
-print(sum(is.infinite(values_predicted_on))) #No values are Inf here, whoop whoop
-
-#hist(values_predicted_on[1:88])
-#hist(values_predicted_on)
-#matplot(I_predicted[1, 1][[1]][, 1], I_predicted[1, 1][[1]][, 2])
-
-find_CRPS_one_year <- function(marginals, true, year){
-  crps = rep(0, n)
-  mean = rep(0, n)
-  sd = rep(0, n)
-  
-  for(i in 1:n){
-    mean[i] = find_mean_marginal(marginals[year, i])
-    sd[i] = find_sd_marginal(marginals[year, i])
-    crps[i] = crpsNormal(true[((year - 1) * n + i)], mu = mean[i], sig = sd[i])
-  }
-  return(list(crps = crps, mean = mean, sd = sd))
-}
-test = find_CRPS_one_year(I_predicted, values_predicted_on, 1)
-#plot(1:88, test$crps)
-find_CRPS_all_years <- function(marginals, true){
-  y1 <- find_CRPS_one_year(marginals, true, 1); y2 <- find_CRPS_one_year(marginals, true, 2)
-  y3 <- find_CRPS_one_year(marginals, true, 3); y4 <- find_CRPS_one_year(marginals, true, 4)
-  y5 <- find_CRPS_one_year(marginals, true, 5); y6 <- find_CRPS_one_year(marginals, true, 6)
-  y7 <- find_CRPS_one_year(marginals, true, 7); y8 <- find_CRPS_one_year(marginals, true, 8)
-  y9 <- find_CRPS_one_year(marginals, true, 9); y10 <- find_CRPS_one_year(marginals, true, 10)
-  
-  combined.df <- data.frame(county = 1:88)
-}
-
-find_CRPS_all_years(I_predicted, values_predicted_on)
-#for(t in 1:10){
-#  test[t] = find_CRPS_one_year(I_predicted, values_predicted_on, t)
-#}
-
-#Find mean of linear predictor from marginal
+values_predicted_on <- ohio_df$deaths[ohio_df$year %in% years_predicted_on]
+pop_in_values_pred_on <- ohio_df$pop_at_risk[ohio_df$year %in% years_predicted_on]
 
 
-#Find Standard Deviation of linear predictor from marginal
+#Find CRPS and AE for improper models with RW1
+improper_1_noInt_ae_crps = find_CRPS_ae_all_years(base_predicted, 
+                                                  pop_in_values_pred_on,
+                                                  values_predicted_on)
+
+improper_1_typeI_ae_crps = find_CRPS_ae_all_years(I_predicted, 
+                                                  pop_in_values_pred_on,
+                                                  values_predicted_on)
+
+improper_1_typeII_ae_crps = find_CRPS_ae_all_years(II_predicted, 
+                                                  pop_in_values_pred_on,
+                                                  values_predicted_on)
+
+improper_1_typeIII_ae_crps = find_CRPS_ae_all_years(III_predicted, 
+                                                  pop_in_values_pred_on,
+                                                  values_predicted_on)
+
+improper_1_typeIV_ae_crps = find_CRPS_ae_all_years(IV_predicted, 
+                                                  pop_in_values_pred_on,
+                                                  values_predicted_on)
+
+#Find CRPS and AE for improper models with RW2
 
 
-#Calculate CRPS for each individual county at time t*: using mean and std of linear predictor
-#i.e. use crpsNormal like crpsNormal(x = log(rate), mu = mean(eta), sig = sd(eta))
+#Find CRPS and AE for proper models
+proper_noInt_ae_crps <- find_CRPS_ae_all_years(proper_base_predicted,
+                                               pop_in_values_pred_on,
+                                               values_predicted_on)
 
+proper_interaction_ae_crps <- find_CRPS_ae_all_years(proper_interaction_predicted,
+                                                     pop_in_values_pred_on,
+                                                     values_predicted_on)
 
-#Calculate absolute error for each individual county at time t*: using mean of linear predictor 
+proper_noInt_ae_crps <- find_CRPS_ae_all_years(proper_base_predicted,
+                                               pop_in_values_pred_on,
+                                               values_predicted_on)
 
 
 
+#Create a table with calculated AE and CRPS values
 
+crps.df <- data.frame(Model = rep(c("1", "2", "3", "4", "5",
+                                "6", "7", "8", "9", "10",
+                                "11", "12", "13"), 2),
+                      ae_crps = rep(c("1", "2"), 13),
+                      value = 1:26)
+
+#Model = 1 - 5 = improper_1_noInt - improper_1_typeIV
+#model = 6 - 10 = improper_2_noInt - improper_2_typeIV
+#model = 11 - 13 = proper_noInt - proper_full
+#ae_crps = 1 is absolute error, ae_crps = 2 is CRPS
+
+crps.df$value[crps.df$Model == "1" & crps.df$ae_crps == "1"] = 
+
+
+#Proper base results
+#proper_results.df$value[proper_results.df$Model == "1" & proper_results.df$model_choice == "1"] = mean(-log(proper_base_fit$cpo$cpo))
+
+
+
+#Make caption and label for latex table
+caption_crps = "HEIHEI"
+label_crps = "crps-ae"
+
+
+#Make table for proper results
+
+#Make latex table
+latex_tabular_crps <- latexTable(tabular(
+  Heading("Model")*RowFactor(Model, levelnames = c("No interaction",
+                                                   "Only interaction",
+                                                   "Full model"),
+                             nopagebreak = "\\hline",
+                             spacing = 0)~
+    Heading()*Factor(model_choice, 
+                     levelnames = c("CPO", "WAIC", "Computational time (s)"))*
+    Heading()*value*Heading()*identity,
+  data = crps.df),
+  caption = caption_crps,
+  label = label_crps
+)
+latex_tabular_crps
+
+#Save latex table
+cat(latex_tabular_crps, file = "CRPS_and_AE_table.tex")
 
 
 

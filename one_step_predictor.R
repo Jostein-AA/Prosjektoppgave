@@ -70,7 +70,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   RW1_prec <- INLA:::inla.rw(n = time, order = 1, 
                              scale.model = FALSE, # set scale.model  = F because we'll scale in the formula
                              sparse = TRUE)
-  
+   
   #Make the base formula
   base_formula <- deaths ~ 1 + f(year, 
                                  model = 'bym2',

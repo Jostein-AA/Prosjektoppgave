@@ -171,9 +171,6 @@ print(c("Type III model fitted in: ", time_RW2_ICAR_III))
 
 #Type IV
 
-#Get constraints for type IV interactions
-typeIV_constraints <- constraints_maker(type = "IV", n = n, t = T)
-
 #Get type IV interaction precision matrix
 typeIV_prec <- scaled_RW_prec %x% scaled_ICAR_prec
 

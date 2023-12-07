@@ -65,7 +65,7 @@ constraints_maker <- function(type = NULL, n = NULL, t = NULL,
       eigens <- eigen(prec_matrix)
       
       #Extract 2n + T - 2 last eigenvectors corresponding to eigenvalues=0
-      A <- t(eigens$vectors[ ,(nrow(eigens$vectors) - 2 * n - T + 3):nrow(eigens$vectors)])
+      A <- t(eigens$vectors[ ,(nrow(eigens$vectors) - 2 * n - t + 3):nrow(eigens$vectors)])
     }
   }
   
@@ -109,8 +109,8 @@ find_mean_marginal <- function(marginal){
 }
 
 #Function to find standard deviation of fitted linear predictor marginal for singular instance
-find_sd_marginal <- function(marginal){
-  return(sd(marginal[[1]][, 1]))
+find_var_marginal <- function(marginal){
+  return(var(marginal[[1]][, 1]))
 }
 
 #Function used to go from linear predictor marginal to fitted rate marginal
@@ -118,6 +118,67 @@ my_inla_t_marginal <- function(prediction_marginal){
   #a function to use inla.tmarginal on several values at once
   return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
 }
+
+crpsNormal <- function(x, mu = 0, sig = 1){
+  ## Function to compute the CRPS under normality assumption
+  ## Here: x denotes the actual observation and mu and sigma
+  ## mean and sd of the predictive distribution.
+  ## (see Held et al. (2010), page 1296
+  
+  x0 <- (x - mu) / sig
+  res <- sig * (1 / sqrt(pi) -  2 * dnorm(x0) - x0 * (2 * pnorm(x0) - 1))
+  
+  ## sign as in Held (2008)
+  res <- -res
+  return(res)
+}
+
+abs_error <- function(x, mu = 0){
+  return(abs(x - mu))
+}
+
+find_CRPS_ae_one_year <- function(marginals, pop, true_values, year){
+  crps = rep(0, n); abs_error = rep(0, n)
+  mean_marg = rep(0, n); mean_predicted = rep(0, n)
+  var_marg = rep(0, n); var_predicted = rep(0, n)
+  
+  for(i in 1:n){
+    mean_marg[i] = find_mean_marginal(marginals[year, i])
+    var_marg[i] = find_var_marginal(marginals[year, i])
+    
+    mean_predicted[i] = pop[((year - 1) * n + i)] * mean_marg[i]
+    var_predicted[i] = pop[((year - 1) * n + i)] * mean_marg[i] + 
+      (pop[((year - 1) * n + i)]**2) * var_marg[i] 
+    
+    crps[i] = crpsNormal(true_values[((year - 1) * n + i)], 
+                         mu = mean_predicted[i],
+                         sig = sqrt(var_predicted[i]))
+    
+    abs_error[i] = abs_error(true_values[((year - 1) * n + i)],
+                             mu = mean_predicted[i])
+  }
+  return(list(crps = crps, 
+              ae = abs_error,
+              mean_marg = mean_marg,
+              var_marg = var_marg,
+              mean_pred = mean_predicted,
+              var_pred = var_predicted))
+}
+
+
+find_CRPS_ae_all_years <- function(marginals, pop, true){
+  avg_crps_each_year = rep(0, 10)
+  avg_ae_each_year = rep(0, 10)
+  for(t in 1:10){
+    temp                  = find_CRPS_ae_one_year(marginals, pop, true, t)
+    avg_crps_each_year[t] = mean(temp$crps)
+    avg_ae_each_year[t] = mean(temp$ae)
+  }
+  return(list(yearly_avg_crps = avg_crps_each_year,
+              yearly_avg_ae = avg_ae_each_year))
+}
+
+
 
 #Plot the intercept
 plot_intercept <- function(improper_base, proper_base){
