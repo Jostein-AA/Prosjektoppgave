@@ -119,64 +119,113 @@ my_inla_t_marginal <- function(prediction_marginal){
   return(inla.tmarginal(function(x){exp(x)}, prediction_marginal))
 }
 
-crpsNormal <- function(x, mu = 0, sig = 1){
-  ## Function to compute the CRPS under normality assumption
-  ## Here: x denotes the actual observation and mu and sigma
-  ## mean and sd of the predictive distribution.
-  ## (see Held et al. (2010), page 1296
-  
-  x0 <- (x - mu) / sig
-  res <- sig * (1 / sqrt(pi) -  2 * dnorm(x0) - x0 * (2 * pnorm(x0) - 1))
-  
-  ## sign as in Held (2008)
-  res <- -res
-  return(res)
+square_error <- function(x, mu = 0){
+  return((x - mu)^2)
 }
 
 abs_error <- function(x, mu = 0){
   return(abs(x - mu))
 }
 
-find_CRPS_ae_one_year <- function(marginals, pop, true_values, year){
-  crps = rep(0, n); abs_error = rep(0, n)
+MAE_and_MSE_one_year <- function(marginals, pop, true_values, year){
+  
+  abs_error = rep(0, n); square_error = rep(0, n)
+  
   mean_marg = rep(0, n); mean_predicted = rep(0, n)
-  var_marg = rep(0, n); var_predicted = rep(0, n)
+
   
   for(i in 1:n){
     mean_marg[i] = find_mean_marginal(marginals[year, i])
-    var_marg[i] = find_var_marginal(marginals[year, i])
-    
     mean_predicted[i] = pop[((year - 1) * n + i)] * mean_marg[i]
-    var_predicted[i] = pop[((year - 1) * n + i)] * mean_marg[i] + 
-      (pop[((year - 1) * n + i)]**2) * var_marg[i] 
-    
-    crps[i] = crpsNormal(true_values[((year - 1) * n + i)], 
-                         mu = mean_predicted[i],
-                         sig = sqrt(var_predicted[i]))
     
     abs_error[i] = abs_error(true_values[((year - 1) * n + i)],
                              mu = mean_predicted[i])
+    
+    square_error[i] = square_error(true_values[((year - 1) * n + i)],
+                                   mu = mean_predicted[i])
+    
+    
   }
-  return(list(crps = crps, 
-              ae = abs_error,
-              mean_marg = mean_marg,
-              var_marg = var_marg,
-              mean_pred = mean_predicted,
-              var_pred = var_predicted))
+  return(list(ae = mean(abs_error),
+              mse = mean(square_error)))
 }
 
 
-find_CRPS_ae_all_years <- function(marginals, pop, true){
-  avg_crps_each_year = rep(0, 10)
-  avg_ae_each_year = rep(0, 10)
+find_MAE_RMSE_all_years <- function(marginals, pop, true){
+  AE = rep(0, 10)
+  MSE = rep(0, 10)
   for(t in 1:10){
-    temp                  = find_CRPS_ae_one_year(marginals, pop, true, t)
-    avg_crps_each_year[t] = mean(temp$crps)
-    avg_ae_each_year[t] = mean(temp$ae)
+    temp   = MAE_and_MSE_one_year(marginals, pop, true, t)
+    AE[t]  = mean(temp$ae)
+    MSE[t] = mean(temp$mse)
   }
-  return(list(yearly_avg_crps = avg_crps_each_year,
-              yearly_avg_ae = avg_ae_each_year))
+  MAE = mean(AE)
+  RMSE = sqrt(mean(MSE))
+  return(list(MAE = MAE, 
+              RMSE = RMSE))
 }
+
+
+#Sample from posterior marginal distribution of lambda using inla.rmarginal,
+#Then sample mortality count O_it* from poisson w. distribution n_{it}lambda sampled ones for each sample of lambda
+#Use the sampled counts to produce upper and lower quantiles
+find_u_l_single_pred <- function(marginal_lambda, population, n_samples = 5000){
+  
+  #Sample lambda from marginal
+  samples <- inla.rmarginal(n_samples, marginal_lambda)
+  
+  #scale by population
+  samples_offset <- population * samples
+  
+  #Sample from poisson using samples_offset
+  poisson_samples = rep(0, n_samples)
+  for(i in 1:n_samples){
+    poisson_samples[i] <- rpois(1, samples_offset[i])
+  }
+  
+  #Calculate upper and lower quantile
+  u = as.numeric(quantile(poisson_samples, 0.975))
+  l = as.numeric(quantile(poisson_samples, 0.025))
+  
+  return(list(l = l, u = u))
+}
+
+#test = find_u_l_single_pred(base_predicted[1, 1][[1]], pop_in_values_pred_on[1])
+
+#Interval-scores
+find_IS_one_obs <- function(l, u, true_value){
+  return((u - l) + 2/0.05 * (l - true_value) * (true_value < l) + 2/0.05 * (true_value - u) * (true_value > u))
+}
+
+#lu = find_u_l_single_pred(base_predicted[1, 1][[1]], pop_in_values_pred_on[1])
+#test = find_IS_one_obs(lu$l, lu$u, values_predicted_on[1])
+
+find_IS_one_year <- function(marginals, population, true_values, year){
+  IS = rep(0, n)
+  
+  for(i in 1:n){
+    
+    temp_lu = find_u_l_single_pred(marginals[year, i][[1]], population[((year - 1) * n + i)])
+    IS[i] = find_IS_one_obs(temp_lu$l, temp_lu$u, true_values[((year - 1) * n + i)])
+    
+  }
+  return(mean(IS))
+}
+
+#test = find_IS_one_year(base_predicted, pop_in_values_pred_on, values_predicted_on, 1)
+
+find_IS_all <- function(marginals, population, true_values){
+  #Iterate over years
+  IS = rep(0, 10)
+  for(t in 1:10){
+    temp   = find_IS_one_year(marginals, population, true_values, t)
+    IS[t]  = temp
+  }
+  return(mean(IS))
+}
+
+#test = find_IS_all(base_predicted, pop_in_values_pred_on, values_predicted_on)
+
 
 
 
@@ -282,7 +331,7 @@ plot_temporal_ar1 <- function(proper_base){
               geom_line(data = ar1.df, aes(years, lower_quant), linetype = "dashed") + 
               geom_line(data = ar1.df, aes(years, upper_quant), linetype = "dashed") + 
               xlab("year") + ylab(expression(alpha[t])) +
-              ggtitle("Random effect")
+              ggtitle("AR1")
   
   years_standardized = 1:21
   beta_mean = proper_base$summary.fixed$mean[2]
@@ -304,11 +353,17 @@ plot_temporal_ar1 <- function(proper_base){
                     geom_line(data = ar1_fixed.df,
                               aes(years, upper_quant), linetype = "dashed") + 
                     xlab("year") + ylab(expression(alpha[t]+beta*t)) + 
-                    ggtitle("Random and fixed effect")
+                    ggtitle("AR1 and fixed effect")
     
     
-  ggarrange(fixed_plot, ar1_plot, ar1_fixed_plot, 
-            ncol = 3, nrow = 1)
+  #ggarrange(fixed_plot, ar1_plot, ar1_fixed_plot, 
+  #          ncol = 3, nrow = 1)
+  
+  
+  
+  ggarrange(fixed_plot, ar1_plot,                                                 # First row with scatter plot
+            ar1_fixed_plot, 
+            nrow = 2,  ncol = 2) 
 }
 
 
@@ -321,7 +376,14 @@ plot_spatial_effects <- function(improper,
   #Function that produces four plots: The posterior intercept, 
   #posterior structured temporal effect along with 2.5% and 97.5% quantiles
   scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
-  scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
+  
+  
+  #scale_improper = scale_col[c(3, 10, 13, 18, 21, 24, 27, 30)]
+  #scale_proper = scale_col[c(3,10,13,18,21,24,27,30)]
+  
+  
+  scale_improper = scale_col[seq(1, 30, length.out = 10)]
+  scale_proper = scale_col[seq(1, 30, length.out = 10)]
   
   improper_mean <- improper$summary.random$county$mean[(n+1):(2*n)]
   proper_mean <- proper$summary.random$county$mean
@@ -330,12 +392,28 @@ plot_spatial_effects <- function(improper,
   temp_ohio_map$improper_mean <- improper_mean
   temp_ohio_map$proper_mean <- proper_mean
   
+  #Hardcoded bins, so as both heatmaps have same scale
+  min_val_improper <- min(improper_mean)
+  max_val_imporper <- max(improper_mean)
+  min_val_proper <- min(proper_mean)
+  max_val_proper <- max(proper_mean)
+  
+  hardcoded_bins_improper = round(seq(min_val_improper,
+                                      max_val_imporper, length.out = 8), 2)
+  
+  
+  #hardcoded_bins_improper = round(seq(0, 1, length.out = 10), 2)
+  
+  hardcoded_bins_proper = round(seq(min_val_proper,
+                                    max_val_proper, length.out = 8), 2)
+  
+  
   #Set the theme to minimal
   theme_set(theme(panel.background = element_blank()))
   improper_mean_plot <- ggplot(data = temp_ohio_map) + 
                         geom_sf(aes(fill = improper_mean), 
                                 alpha = 1,
-                                color="black") + ggtitle("Mean Besag") +
+                                color="black") + ggtitle("Mean ICAR") +
                         theme(plot.title = element_text(size = 12),
                               axis.title.x = element_blank(), #Remove axis and background grid
                               axis.text = element_blank(),
@@ -349,14 +427,17 @@ plot_spatial_effects <- function(improper,
                         binned_scale( #Scaling the color
                           aesthetics = "fill",
                           scale_name = "gradientn",
-                          palette = function(x) c(scale_1),
+                          palette = function(x) c(scale_improper),
                           labels = function(x){x},
+                          breaks = hardcoded_bins_improper,
+                          limits = c(-3, 3),
                           guide = "colorscale")
   
+  
   proper_mean_plot <- ggplot(data = temp_ohio_map) + 
-                      geom_sf(aes(fill = improper_mean), 
+                      geom_sf(aes(fill = proper_mean), 
                               alpha = 1,
-                              color="black") + ggtitle("Mean proper Besag") +
+                              color="black") + ggtitle("Mean CAR") +
                       theme(plot.title = element_text(size = 12),
                             axis.title.x = element_blank(), #Remove axis and background grid
                             axis.text = element_blank(),
@@ -370,8 +451,10 @@ plot_spatial_effects <- function(improper,
                       binned_scale( #Scaling the color
                         aesthetics = "fill",
                         scale_name = "gradientn",
-                        palette = function(x) c(scale_1),
+                        palette = function(x) c(scale_proper),
                         labels = function(x){x},
+                        breaks = hardcoded_bins_proper,
+                        limits = c(-3, 3),
                         guide = "colorscale")
   
   ggarrange(improper_mean_plot, proper_mean_plot,
@@ -387,7 +470,10 @@ plot_spatial_std <- function(improper,
   #Function that produces four plots: The posterior intercept, 
   #posterior structured temporal effect along with 2.5% and 97.5% quantiles
   scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
-  scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
+  
+  #scale_1 = scale_col[c(3,10,13,17,21,24,27,30)] #Select color scale to be more red
+  scale_1 = scale_col[seq(3, 30, length.out = 8)]
+  
   
   improper_sd <- improper$summary.random$county$sd[(n+1):(2*n)]
   proper_sd <- proper$summary.random$county$sd
@@ -396,12 +482,30 @@ plot_spatial_std <- function(improper,
   temp_ohio_map$improper_sd <- improper_sd
   temp_ohio_map$proper_sd <- proper_sd
   
+  
+  #Hardcoded bins
+  #Hardcoded bins, so as both heatmaps have same scale
+  min_val_improper <- min(improper_sd)
+  max_val_imporper <- max(improper_sd)
+  min_val_proper <- min(proper_sd)
+  max_val_proper <- max(proper_sd)
+  
+  hardcoded_bins_improper = round(seq(min_val_improper - 0.01,
+                                      max_val_imporper + 0.01, length.out = 8), 2)
+  
+  
+  #hardcoded_bins_improper = round(seq(0, 1, length.out = 10), 2)
+  
+  hardcoded_bins_proper = round(seq(min_val_proper,
+                                    max_val_proper, length.out = 8), 2)
+  
+  
   #Set the theme to minimal
   theme_set(theme(panel.background = element_blank()))
   improper_sd_plot <- ggplot(data = temp_ohio_map) + 
     geom_sf(aes(fill = improper_sd), 
             alpha = 1,
-            color="black") + ggtitle("Standard deviation Besag") +
+            color="black") + ggtitle("Standard deviation ICAR") +
     theme(plot.title = element_text(size = 12),
           axis.title.x = element_blank(), #Remove axis and background grid
           axis.text = element_blank(),
@@ -417,12 +521,14 @@ plot_spatial_std <- function(improper,
       scale_name = "gradientn",
       palette = function(x) c(scale_1),
       labels = function(x){x},
+      breaks = hardcoded_bins_improper,
+      limits = c(0, 3),
       guide = "colorscale")
   
   proper_sd_plot <- ggplot(data = temp_ohio_map) + 
     geom_sf(aes(fill = proper_sd), 
             alpha = 1,
-            color="black") + ggtitle("Standard deviation proper Besag") +
+            color="black") + ggtitle("Standard deviation CAR") +
     theme(plot.title = element_text(size = 12),
           axis.title.x = element_blank(), #Remove axis and background grid
           axis.text = element_blank(),
@@ -438,12 +544,56 @@ plot_spatial_std <- function(improper,
       scale_name = "gradientn",
       palette = function(x) c(scale_1),
       labels = function(x){x},
+      breaks = hardcoded_bins_proper,
+      limits = c(0, 3),
       guide = "colorscale")
 
   
   ggarrange(improper_sd_plot, proper_sd_plot,
             ncol = 2, nrow = 1,
             common.legend = FALSE)
+  
+}
+
+
+
+
+
+
+
+
+
+#Sample posterior to get phi times variance of county???
+hyperpar_sampler <- function(fitted_model,
+                             n_samples = 10000,
+                             temporal = TRUE){
+  
+  #Matrix where each row is a sample, and columns is which hyperparameter it is a sample of
+  posterior_samples = inla.hyperpar.sample(n_samples, fitted_model) #Sample the posterior
+  
+  if(temporal){ #We want the temporal hyperparameters
+    #Precision for year; Phi for year, col 1 and 2
+    #Want to find standard deviation explained by alpha_t
+    std_explained = rep(0, n_samples)
+    for(i in 1:n_samples){
+      std_explained[i] = sqrt(posterior_samples[i, 2] * as.numeric(1/posterior_samples[i, 1]))
+    }
+    
+    #Get variance explained by structured effect, i.e. product of marginal variance and Phi for year
+    return(std_explained)
+    
+    
+  } else{ #We want the spatial hyperparameters
+    #Precision for county, Phi for county col 3 and 4 respectively
+    std_explained = rep(0, n_samples)
+    
+    for(i in 1:n_samples){
+      std_explained[i] = sqrt(posterior_samples[i, 4] * as.numeric(1/posterior_samples[i, 3]))
+    }
+    
+    #Get variance explained by structured effect, i.e. product of marginal variance and Phi for year
+    return(std_explained)
+  }
   
 }
 
@@ -458,6 +608,7 @@ plot_improper_temporal_hyperparameters <- function(fitted_RW1, fitted_RW2){
   
   std_year_RW2 <- inla.tmarginal(function(x) sqrt(1/x),
                                  fitted_RW2$marginals.hyperpar$`Precision for year`)
+  
   
   #Format for ggplot
   std_temporal_df <- data.frame(x_axis = c(std_year_RW1[, 1], std_year_RW2[, 1]),
@@ -481,7 +632,7 @@ plot_improper_temporal_hyperparameters <- function(fitted_RW1, fitted_RW2){
     theme_bw() +
     theme(axis.title=element_text(size=14)) +
     labs(fill = NULL) +
-    xlab(expression(sigma)) + ylab(expression(f(sigma))) 
+    xlab(expression(sigma)) + ylab(TeX("$f(*)$")) #expression(f(sigma)) 
   
   phi_temporal_plot <- ggplot(data=phi_temporal_df) + 
     stat_density(aes(x=x_axis, group=type, fill=type),
@@ -489,10 +640,34 @@ plot_improper_temporal_hyperparameters <- function(fitted_RW1, fitted_RW2){
     theme_bw() +
     theme(axis.title=element_text(size=14)) +
     labs(fill = NULL) +
-    xlab(expression(lambda)) + ylab(expression(f(lambda)))
+    xlab(expression(phi)) + ylab("") #expression(f(lambda))
   
-  ggarrange(std_temporal_plot, phi_temporal_plot,
-            common.legend = T, legend = "right")
+  
+  
+  #Extract how much of the standard deviation is captured
+  samples_rw1 = hyperpar_sampler(fitted_RW1)
+  samples_rw2 = hyperpar_sampler(fitted_RW2)
+  
+  sigma_sqrtPhi.df <- data.frame(x_axis = c(samples_rw1,
+                                            samples_rw2),
+                                 type = c(rep("RW1", length(samples_rw1)),
+                                          rep("RW2", length(samples_rw2))))
+
+  sigma_phi.plot <- ggplot(data=sigma_sqrtPhi.df) + 
+                            stat_density(aes(x=x_axis, group=type, fill=type),
+                                         adjust=1.5, alpha=.8, position = "identity") +
+                            theme_bw() +
+                            theme(axis.title=element_text(size=14)) +
+                            labs(fill = NULL) +
+                            xlab(TeX("$\\sigma\\sqrt{\\phi}$")) + #"$\\left(\\frac{\\phi}{\\tau}\\right)^{1/2}$"
+                            ylab("")
+  
+  plt <- ggarrange(std_temporal_plot, phi_temporal_plot, sigma_phi.plot,
+                    ncol = 3, nrow = 1,
+                    common.legend = T, legend = "top")
+  
+  annotate_figure(plt, top = text_grob("Temporal hyperparameters of improper models", 
+                                       color = "black", size = 14))
   
   
 }
@@ -516,7 +691,7 @@ plot_improper_spatial_hyperparameters <- function(fitted_RW1){
     theme_bw() +
     theme(axis.title=element_text(size=14)) +
     labs(fill = NULL) +
-    xlab(expression(sigma)) + ylab(expression(f(sigma)))
+    xlab(expression(sigma)) + ylab(TeX("$f(*)$")) #expression(f(sigma))
   
   phi_spatial_plot <- ggplot(data=phi_spatial_df,
                              aes(x=x_axis)) +
@@ -525,9 +700,31 @@ plot_improper_spatial_hyperparameters <- function(fitted_RW1){
     theme_bw() +
     theme(axis.title=element_text(size=14)) +
     labs(fill = NULL) +
-    xlab(expression(lambda)) + ylab(expression(f(lambda)))
+    xlab(expression(phi)) + ylab("") #expression(f(lambda))
   
-  ggarrange(std_spatial_plot, phi_spatial_plot)
+  
+  #add w. 
+  #Extract how much of the standard deviation is captured
+  posterior_samples = hyperpar_sampler(fitted_RW1, temporal = FALSE)
+  
+  sigma_sqrtPhi.df <- data.frame(x_axis = posterior_samples)
+  
+  sigma_phi.plot <- ggplot(data=sigma_sqrtPhi.df,
+                           aes(x = x_axis)) + 
+                  stat_density(fill = "lightgreen",
+                               adjust=1.5, alpha=.8, position = "identity") +
+                  theme_bw() +
+                  theme(axis.title=element_text(size=14)) +
+                  labs(fill = NULL) +
+                  xlab(TeX("$\\sigma\\sqrt{\\phi}$")) + 
+                  ylab("")
+  
+  
+  plt <- ggarrange(std_spatial_plot, phi_spatial_plot, sigma_phi.plot,
+                   ncol = 3, nrow = 1)
+  
+  annotate_figure(plt, top = text_grob("Spatial hyperparameters of improper models", 
+                  color = "black", size = 14))
 }
 
 #Plot posterior hyperparameters of proper temporal random effect
@@ -542,8 +739,8 @@ plot_proper_temporal_hyperparameter <- function(proper_base, proper_full){
   #Format for ggplot
   std_temporal_df <- data.frame(x_axis = c(std_ar1_base[, 1], std_ar1_full[, 1]),
                                 y_axis = c(std_ar1_base[, 2], std_ar1_full[, 2]),
-                                type = c(rep("Base", length(std_ar1_base[, 1])),
-                                         rep("Full", length(std_ar1_full[, 1]))))
+                                type = c(rep("Proper_noInt", length(std_ar1_base[, 1])),
+                                         rep("Proper_full", length(std_ar1_full[, 1]))))
   
   
   rho_temporal_df <- data.frame(x_axis = c(proper_base$marginals.hyperpar$`Rho for year.copy`[, 1],
@@ -557,7 +754,7 @@ plot_proper_temporal_hyperparameter <- function(proper_base, proper_full){
   
   std_temporal_plot <- ggplot(data=std_temporal_df) + 
     stat_density(aes(x=x_axis, group=type, fill=type),
-                 adjust=1.5, alpha=.8, position = "identity") +
+                 adjust=1, alpha=.8, position = "identity") +
     theme_bw() +
     theme(axis.title=element_text(size=14)) +
     labs(fill = NULL) +
@@ -565,14 +762,17 @@ plot_proper_temporal_hyperparameter <- function(proper_base, proper_full){
   
   rho_temporal_plot <- ggplot(data=rho_temporal_df) + 
     stat_density(aes(x=x_axis, group=type, fill=type),
-                 adjust=6.5, alpha=.8, position = "identity") +
+                 adjust=3, alpha=.8, position = "identity") +
     theme_bw() +
     theme(axis.title=element_text(size=14)) +
     labs(fill = NULL) +
     xlab(expression(rho)) + ylab(expression(f(rho)))
   
-  ggarrange(std_temporal_plot, rho_temporal_plot,
-            common.legend = T, legend = "right")
+  plt <- ggarrange(std_temporal_plot, rho_temporal_plot,
+                  common.legend = T, legend = "top")
+  
+  annotate_figure(plt, top = text_grob("Temporal hyperparameters of proper models", 
+                                       color = "black", size = 12))
   
 }
 
@@ -592,8 +792,8 @@ plot_proper_spatial_hyperparameters <- function(proper_base, proper_full){
   #Format for ggplot
   std_spatial_df <- data.frame(x_axis = c(std_CAR_base[, 1], std_CAR_full[, 1]),
                                y_axis = c(std_CAR_base[, 2], std_CAR_full[, 2]),
-                               type = c(rep("Base", length(std_CAR_base[, 1])),
-                                        rep("Full", length(std_CAR_full[, 1]))))
+                               type = c(rep("Proper_noInt", length(std_CAR_base[, 1])),
+                                        rep("Proper_full", length(std_CAR_full[, 1]))))
   
   
   lambda_spatial_df <- data.frame(x_axis = c(proper_base$marginals.hyperpar$`Lambda for county`[, 1],
@@ -621,8 +821,11 @@ plot_proper_spatial_hyperparameters <- function(proper_base, proper_full){
     labs(fill = NULL) +
     xlab(expression(lambda)) + ylab(expression(f(lambda)))
   
-  ggarrange(std_spatial_plot, lambda_spatial_plot,
-            common.legend = T, legend = "right")
+  plt <- ggarrange(std_spatial_plot, lambda_spatial_plot,
+            common.legend = T, legend = "top")
+  
+  annotate_figure(plt, top = text_grob("Spatial hyperparameters of proper models", 
+                                       color = "black", size = 12))
 }
 
 
@@ -879,13 +1082,16 @@ plot_std_interactions_RW1 <- function(rw1_typeI, rw1_typeII,
                                     rep("Type IV", length(rw1_std_IV[, 1]))))
   
   #Plot
-  ggplot(data=rw1_std_df,
-         aes(x=x_axis, group=type, fill=type)) +
-    geom_density(adjust=1.5, alpha=.8) +
-    theme_bw() + 
-    theme(axis.title=element_text(size=14)) +
-    labs(fill = NULL) +
-    xlab(expression(sigma)) + ylab(expression(f(sigma)))
+  gplt <- ggplot(data=rw1_std_df,
+                aes(x=x_axis, group=type, fill=type)) +
+                geom_density(adjust=1.5, alpha=.8) +
+                theme_bw() + 
+                theme(axis.title=element_text(size=14)) +
+                labs(fill = NULL) +
+                xlab(expression(sigma)) + ylab(expression(f(sigma)))
+  plt <- ggarrange(gplt, common.legend = TRUE, legend = "top")
+  annotate_figure(plt, top = text_grob("Interaction hyperparameters for Improper_1 models", 
+                                         color = "black", size = 14))
   
 }
 
@@ -938,8 +1144,11 @@ plot_std_interactions_RW2 <- function(typeI,
     theme(axis.title=element_text(size=14)) +
     xlab(expression(sigma)) + ylab(expression(f(sigma)))
   
-  ggarrange(I_III, II_IV, ncol = 2, nrow = 1, 
-            common.legend = FALSE)
+  plt <- ggarrange(I_III, II_IV, ncol = 2, nrow = 1, 
+            common.legend = FALSE, legend = "top")
+  
+  annotate_figure(plt, top = text_grob("Interaction hyperparameters for Improper_2 models", 
+                                       color = "black", size = 12))
   
 }
 
@@ -957,8 +1166,8 @@ plot_proper_hyperparameters <- function(interaction_only, full){
   
   std.df <- data.frame(x_axis = c(std_interaction_only[, 1], std_interaction_full[, 1]),
                        y_axis = c(std_interaction_only[, 2], std_interaction_full[, 2]),
-                       type = c(rep("Interaction only", length(std_interaction_only[, 1])),
-                                rep("Full model", length(std_interaction_full[, 1]))))
+                       type = c(rep("Proper_onlyInt", length(std_interaction_only[, 1])),
+                                rep("Proper_full", length(std_interaction_full[, 1]))))
   
   std_plot <- ggplot(data=std.df,
                      aes(x=x_axis, group=type, fill=type)) +
@@ -966,7 +1175,7 @@ plot_proper_hyperparameters <- function(interaction_only, full){
                      theme_bw() +
                      labs(fill = NULL) +
                      theme(axis.title=element_text(size=14)) +
-                     xlab(expression(sigma)) + ylab(expression(f(sigma)))
+                     xlab(expression(sigma)) + ylab(TeX("$f(*)$"))
   
   
   interaction_lambda <- interaction_only$marginals.hyperpar$`Lambda for county`
@@ -974,8 +1183,8 @@ plot_proper_hyperparameters <- function(interaction_only, full){
   
   lambda.df <- data.frame(x_axis = c(interaction_lambda[, 1], full_lambda[, 1]),
                           y_axis = c(interaction_lambda[, 2], full_lambda[, 2]),
-                          type = c(rep("Interaction only", length(interaction_lambda[, 1])),
-                                   rep("Full model", length(full_lambda[, 1]))))
+                          type = c(rep("Proper_onlyInt", length(interaction_lambda[, 1])),
+                                   rep("Proper_full", length(full_lambda[, 1]))))
   
   lambda_plot <- ggplot(data=lambda.df,
                         aes(x=x_axis, group=type, fill=type)) +
@@ -983,7 +1192,7 @@ plot_proper_hyperparameters <- function(interaction_only, full){
                         theme_bw() +
                         labs(fill = NULL) +
                         theme(axis.title=element_text(size=14)) +
-                        xlab(expression(lambda)) + ylab(expression(f(lambda)))
+                        xlab(expression(lambda)) + ylab(NULL)
   
   
   interaction_rho <- interaction_only$marginals.hyperpar$`GroupRho for county`
@@ -991,8 +1200,8 @@ plot_proper_hyperparameters <- function(interaction_only, full){
   
   rho.df <- data.frame(x_axis = c(interaction_rho[, 1], full_rho[, 1]),
                        y_axis = c(interaction_rho[, 2], full_rho[, 2]),
-                       type = c(rep("Interaction only", length(interaction_rho[, 1])),
-                                rep("Full model", length(full_rho[, 1]))))
+                       type = c(rep("Proper_onlyInt", length(interaction_rho[, 1])),
+                                rep("Proper_full", length(full_rho[, 1]))))
   
   
   rho_plot <- ggplot(data=rho.df,
@@ -1001,12 +1210,15 @@ plot_proper_hyperparameters <- function(interaction_only, full){
                         theme_bw() +
                         labs(fill = NULL) +
                         theme(axis.title=element_text(size=14)) +
-                        xlab(expression(rho)) + ylab(expression(f(rho)))
+                        xlab(expression(rho)) + ylab(NULL)
   
   
-  ggarrange(std_plot, lambda_plot, rho_plot,
-            ncol = 3, nrow = 1,
-            common.legend = TRUE, legend = "right")
+  plt <- ggarrange(std_plot, lambda_plot, rho_plot,
+                    ncol = 3, nrow = 1,
+                    common.legend = TRUE, legend = "top")
+  
+  annotate_figure(plt, top = text_grob("Interaction hyperparameters for Proper models", 
+                                       color = "black", size = 15))
 }
 
 
@@ -1084,7 +1296,8 @@ county_time_series <- function(actual,
           geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
           xlab(xlab) + ylab(ylab) + ggtitle(actual[county, ]$name) +
           labs(col = NULL) +
-          theme_bw()
+          theme_bw() + 
+          theme(axis.title=element_text(size=14))
   } else {
     plt <- ggplot(data = values.df, aes(x = years)) + 
       geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
@@ -1093,7 +1306,8 @@ county_time_series <- function(actual,
       geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
       xlab(xlab) + ylab(ylab) +
       labs(col = NULL) +
-      theme_bw()
+      theme_bw() +
+      theme(axis.title=element_text(size=14))
   }
   plt <- plt + scale_color_manual(values=c("#F8766D", "black", "#00BFC4"))
   return(plt)
@@ -1128,7 +1342,7 @@ select_county_timeseries <- function(actual_data,
             II_plt1, II_plt2, II_plt3, II_plt4,
             proper_plt1, proper_plt2, proper_plt3, proper_plt4,
             ncol = 4, nrow = 3, 
-            common.legend = TRUE, legend = "right")
+            common.legend = TRUE, legend = "top")
   
 }
 
@@ -1142,7 +1356,8 @@ select_county_timeseries <- function(actual_data,
 #Plot heatmap for 1 year
 case_count_plot_1_year <- function(sf_data, 
                                    year,
-                                   hardcoded_bins){
+                                   hardcoded_bins,
+                                   title){
   scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
   scale = scale_col[c(3,10,13,18,21,24,27,30)] #Select color scale to be more red
   #scale = heat.colors(8, rev= TRUE)
@@ -1151,13 +1366,14 @@ case_count_plot_1_year <- function(sf_data,
       geom_sf(aes(fill = rate), #Plots death rate
               alpha = 1,
               color="black") + 
-      ggtitle(year) +
-      theme(plot.title = element_text(size = 10),
+      ggtitle(title) +
+    theme(plot.title = element_text(size = 14),
             axis.title.x = element_blank(), #Remove axis and background grid
             axis.text = element_blank(),
             axis.ticks = element_blank(),
             panel.background = element_blank(),
-            plot.margin =  unit(c(0, 0, 0, 0), "inches"),
+            panel.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"),
+            plot.margin =  unit(c(0.01, 0.01, 0.01, 0.01), "cm"),
             legend.box.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
             legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "cm"),
             panel.spacing = unit(1, 'lines')) +
@@ -1191,7 +1407,77 @@ violin_plot_rate <- function(rates.df){
 }
 
 
-
+####
+extract_res_inla = function(result, #Fitted model, i suppose?
+                            n_samples = 10000,
+                            return_hist_data = T,
+                            check_samples = 100){
+  
+  #n_fixed = ifelse(is.na(nrow(result$summary.fixed)), 0, nrow(result$summary.fixed))
+  #stopifnot(n_fixed > 0)
+  
+  posterior_samples = inla.hyperpar.sample(n_samples, result) #Sample the posterior
+  
+  
+  #effect_names = word(colnames(posterior_samples), start = -1) # Extract names
+  #stopifnot(length(effect_names) > 0) # Need random effect to work
+  
+  
+  rho_samples = data.frame(matrix(ncol = length(effect_names), nrow = n_samples))
+  
+  
+  colnames(rho_samples) = effect_names
+  
+  #Transform precision to variance
+  for (i in 1:n_samples) {
+    rho_samples[i,] = as.numeric(1/posterior_samples[i,])
+  }
+  sigma = sqrt(rowSums(rho_samples)) # Square root total marginal variance
+  rho_samples = rho_samples/rowSums(rho_samples) #Calculate proportion of variance in each effect
+  
+  #Create dataframe to store the results
+  inference_results = data.frame(matrix(ncol = 3, nrow = 1 + n_fixed + length(effect_names)))
+  colnames(inference_results) = c("median", "0.025quant", "0.975quant")
+  
+  #These first rows are the fixed effects
+  for (i in 1:n_fixed) {
+    inference_results[i, ] = result$summary.fixed[c("0.5quant", "0.025quant", "0.975quant")][i,]
+  }
+  
+  rownames(inference_results)[1:n_fixed] = rownames(result$summary.fixed)
+  
+  for (i in 1:length(effect_names)) {
+    effect = effect_names[i]
+    cred_int = ci(rho_samples[effect], method = "ETI")
+    inference_results[n_fixed + i,] = c(median(rho_samples[effect][,1]), cred_int$CI_low, cred_int$CI_high)
+  }
+  
+  rownames(inference_results)[(n_fixed + 1):(n_fixed + length(effect_names))] = paste0("rho_", effect_names)
+  
+  
+  #Create equi-tailed CI
+  cred_int_sigma = ci(sigma, method ="ETI")
+  inference_results[n_fixed + length(effect_names) + 1,] = c(median(sigma), cred_int_sigma$CI_low, cred_int_sigma$CI_high)
+  rownames(inference_results)[n_fixed + length(effect_names) + 1] = "sigma"
+  
+  # Include the samples in the returned object. For making posterior densities
+  if (return_hist_data){
+    hist_data = data.frame(matrix(ncol = length(effect_names) + 1, nrow = n_samples))
+    colnames(hist_data)[1:length(effect_names)] = effect_names
+    colnames(hist_data)[length(effect_names)+1] = "sigma"
+    for (i in 1:length(effect_names)) {
+      hist_data[effect_names[i]][,1] = rho_samples[,i]
+    }
+    colnames(hist_data)[1:length(effect_names)] = paste0("rho_", effect_names)
+    hist_data$sigma = as.numeric(sigma)
+    inference_results = list(inference_results = inference_results, hist_data = hist_data)
+  }
+  
+  # Calculate posterior probabilities 
+  inference_results$posterior_prob = c(paste("Posterior probability of", effect_names[1], ">",effect_names[2], sep =" "), mean(ifelse(rho_samples[,1] > rho_samples[,2], 1, 0)))
+  
+  return(inference_results)
+}
 
 
 

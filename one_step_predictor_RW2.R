@@ -66,7 +66,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   temp_ohio = ohio_df[ohio_df$year<= time, ] #Extract data in year 1:time
   temp_ohio[temp_ohio$year == time, ]$deaths = NA
   
-  #make RW1 prec for these years
+  #make RW2 prec for these years
   RW2_prec <- INLA:::inla.rw(n = time, order = 2, 
                              scale.model = FALSE, 
                              sparse = TRUE)
@@ -173,6 +173,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   RW2_ICAR_III_fit <- inla(typeIII_formula,
                            data = temp_ohio,
                            family = "poisson",
+                           E = pop_at_risk, 
                            control.predictor = list(compute = TRUE),       #For predictions
                            control.compute = list(config = TRUE, # To see constraints later
                                                   cpo = T,   # For model selection
@@ -204,6 +205,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
                           family = "poisson",
                           E = pop_at_risk,
                           control.predictor = list(compute = TRUE),       #For predictions
+                          
                           control.compute = list(config = TRUE, # To see constraints later
                                                  cpo = T,   # For model selection
                                                  waic = T,  # For model selection

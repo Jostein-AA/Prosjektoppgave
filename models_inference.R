@@ -22,159 +22,116 @@ source("utilities.R")
 
 #Load in INLA objects
 load("improper_RW1_ICAR_fitted.RData"); load("improper_RW2_ICAR_fitted.RData")
-load("proper_fitted.RData"); load("one_step_predictions.RData")
+load("proper_fitted.RData"); load("one_step_predictions.RData"); load("one_step_predictions_RW2.RData")
 
 
 
 ################################################################################
 #Create latex table with results
 #Format results data.frame for latex table
-improper_results.df <- data.frame(Interaction = rep(c("1", "2", "3", "4", "5"), 3),
-                                  RW = c(rep("1", 15), rep("2", 15)),
-                                  model_choice = rep(c("1", "2", "3"), 10),
-                                  value = 1:30)
+
+#Make one table containing all
+
+cpo_waic_results.df <- data.frame(Model = rep(c("Improper 1 noInt",
+                                              "Improper 1 typeI",
+                                              "Improper 1 typeII",
+                                              "Improper 1 typeIII",
+                                              "Improper 1 typeIV",
+                                              "Improper 2 noInt",
+                                              "Improper 2 typeI",
+                                              "Improper 2 typeII",
+                                              "Improper 2 typeIII",
+                                              "Improper 2 typeIV",
+                                              "Proper noInt",
+                                              "Proper onlyInt",
+                                              "Proper full"), 3),
+                                  model_choice = rep(c("1", "2", "3"), 13),
+                                  value = 1:39)
+
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 noInt" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 noInt" & cpo_waic_results.df$model_choice == "2"] = RW1_ICAR_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 noInt" & cpo_waic_results.df$model_choice == "3"] = time_RW1_ICAR
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeI" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_I_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeI" & cpo_waic_results.df$model_choice == "2"] = RW1_ICAR_I_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeI" & cpo_waic_results.df$model_choice == "3"] = time_RW1_ICAR_I
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeII" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_II_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeII" & cpo_waic_results.df$model_choice == "2"] = RW1_ICAR_II_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeII" & cpo_waic_results.df$model_choice == "3"] = time_RW1_ICAR_II
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeIII" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_III_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeIII" & cpo_waic_results.df$model_choice == "2"] = RW1_ICAR_III_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeIII" & cpo_waic_results.df$model_choice == "3"] = time_RW1_ICAR_III
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeIV" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_IV_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeIV" & cpo_waic_results.df$model_choice == "2"] = RW1_ICAR_IV_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 1 typeIV" & cpo_waic_results.df$model_choice == "3"] = time_RW1_ICAR_IV
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 noInt" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 noInt" & cpo_waic_results.df$model_choice == "2"] = RW2_ICAR_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 noInt" & cpo_waic_results.df$model_choice == "3"] = time_RW2_ICAR
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeI" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_I_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeI" & cpo_waic_results.df$model_choice == "2"] = RW2_ICAR_I_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeI" & cpo_waic_results.df$model_choice == "3"] = time_RW2_ICAR_I
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeII" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_II_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeII" & cpo_waic_results.df$model_choice == "2"] = RW2_ICAR_II_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeII" & cpo_waic_results.df$model_choice == "3"] = time_RW2_ICAR_II
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeIII" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_III_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeIII" & cpo_waic_results.df$model_choice == "2"] = RW2_ICAR_III_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeIII" & cpo_waic_results.df$model_choice == "3"] = time_RW2_ICAR_III
+
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeIV" & cpo_waic_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_IV_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeIV" & cpo_waic_results.df$model_choice == "2"] = RW2_ICAR_IV_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Improper 2 typeIV" & cpo_waic_results.df$model_choice == "3"] = time_RW2_ICAR_IV
+
+#Proper base results
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper noInt" & cpo_waic_results.df$model_choice == "1"] = mean(-log(proper_base_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper noInt" & cpo_waic_results.df$model_choice == "2"] = proper_base_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper noInt" & cpo_waic_results.df$model_choice == "3"] = time_proper_base
+
+#Proper interaction results
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper onlyInt" & cpo_waic_results.df$model_choice == "1"] = mean(-log(proper_interaction_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper onlyInt" & cpo_waic_results.df$model_choice == "2"] = proper_interaction_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper onlyInt" & cpo_waic_results.df$model_choice == "3"] = time_proper_interaction
+
+#Full proper results
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper full" & cpo_waic_results.df$model_choice == "1"] = mean(-log(proper_full_fit$cpo$cpo))
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper full" & cpo_waic_results.df$model_choice == "2"] = proper_full_fit$waic$waic
+cpo_waic_results.df$value[cpo_waic_results.df$Model == "Proper full" & cpo_waic_results.df$model_choice == "3"] = time_proper_full * 60
 
 
 #model = 1 -> base, model = 2 -> type I,..., model = 5 -> type IV
 #RW = 1 -> RW1, RW = 2 -> RW2
 #model_choice = 1 -> CPO, model_choice = 2 -> WAIC, model_choice = 3 -> Computational time (s)
 
-#Insert values into table
-#RW1 base model
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "2"] = RW1_ICAR_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "3"] = time_RW1_ICAR
-
-#RW1 type I
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_I_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "2"] = RW1_ICAR_I_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "3"] = time_RW1_ICAR_I
-
-#RW1 type II
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_II_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "2"] = RW1_ICAR_II_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "3"] = time_RW1_ICAR_II
-
-#RW1 type III
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_III_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "2"] = RW1_ICAR_III_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "3"] = time_RW1_ICAR_III
-
-#RW1 Type IV
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "1"] = mean(-log(RW1_ICAR_IV_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "2"] = RW1_ICAR_IV_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "1" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "3"] = time_RW1_ICAR_IV
-
-#RW2 base model
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "2"] = RW2_ICAR_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "1" & improper_results.df$model_choice == "3"] = time_RW2_ICAR
-
-#RW2 type I
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_I_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "2"] = RW2_ICAR_I_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "2" & improper_results.df$model_choice == "3"] = time_RW2_ICAR_I
-
-#RW2 type II
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_II_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "2"] = RW2_ICAR_II_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "3" & improper_results.df$model_choice == "3"] = time_RW2_ICAR_II
-
-#RW2 type III
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_III_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "2"] = RW2_ICAR_III_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "4" & improper_results.df$model_choice == "3"] = time_RW2_ICAR_III
-
-#RW2 Type IV
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "1"] = mean(-log(RW2_ICAR_IV_fit$cpo$cpo))
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "2"] = RW2_ICAR_IV_fit$waic$waic
-improper_results.df$value[improper_results.df$RW == "2" & improper_results.df$Interaction == "5" & improper_results.df$model_choice == "3"] = time_RW2_ICAR_IV
 
 #Make caption and label for latex table
-caption = "Reported values of CPO, WAIC, and computational time,
-           for improper model specifications.
-          First column indicates whether the structured temporal effect follows a RW1 or RW2.
-          Second column states what type of interaction the model uses.
-          Third column reports the calculated summary statistic of CPO.
-          Fourth column gives the calculated WAIC for each model.
-          Lastly the computational time is reported in the last column."
-label = "improper-results"
+caption = "HEIHEI"
+label = "CPO-results"
 
 #Make latex table
 latex_tabular <- latexTable(tabular(
-  Heading()*RowFactor(RW, levelnames = c("RW1", "RW2"))*
-    Heading("Interaction")*RowFactor(Interaction, levelnames = c("No interaction",
-                                              "Type I",
-                                              "Type II",
-                                              "Type III",
-                                              "Type IV"),
+  Heading("Model")*RowFactor(Model, 
                         nopagebreak = "\\hline",
                         spacing = 0)~
     Heading()*Factor(model_choice, 
                      levelnames = c("CPO", "WAIC", "Computational time (s)"))*
     Heading()*value*Heading()*identity,
-  data = improper_results.df),
+  data = cpo_waic_results.df),
   caption = caption,
   label = label
 )
 latex_tabular
 
 #Save latex table
-cat(latex_tabular, file = "improper_table.tex")
-
-#Make proper table
-proper_results.df <- data.frame(Model = c(rep("1", 3), rep("2", 3), rep("3", 3)),
-                                model_choice = rep(c("1", "2", "3"), 3),
-                                value = 1:9)
-
-# Model = 1 -> proper base model, Model = 2 -> proper interaction only, Model = 3 -> full proper model
-#Model_choice = 1 -> CPO, 2 -> WAIC, 3 -> Computational time
-
-#Proper base results
-proper_results.df$value[proper_results.df$Model == "1" & proper_results.df$model_choice == "1"] = mean(-log(proper_base_fit$cpo$cpo))
-proper_results.df$value[proper_results.df$Model == "1" & proper_results.df$model_choice == "2"] = proper_base_fit$waic$waic
-proper_results.df$value[proper_results.df$Model == "1" & proper_results.df$model_choice == "3"] = time_proper_base
-
-#Proper interaction results
-proper_results.df$value[proper_results.df$Model == "2" & proper_results.df$model_choice == "1"] = mean(-log(proper_interaction_fit$cpo$cpo))
-proper_results.df$value[proper_results.df$Model == "2" & proper_results.df$model_choice == "2"] = proper_interaction_fit$waic$waic
-proper_results.df$value[proper_results.df$Model == "2" & proper_results.df$model_choice == "3"] = time_proper_interaction
-
-#Full proper results
-proper_results.df$value[proper_results.df$Model == "3" & proper_results.df$model_choice == "1"] = mean(-log(proper_full_fit$cpo$cpo))
-proper_results.df$value[proper_results.df$Model == "3" & proper_results.df$model_choice == "2"] = proper_full_fit$waic$waic
-proper_results.df$value[proper_results.df$Model == "3" & proper_results.df$model_choice == "3"] = time_proper_full * 60
-
-#Make caption and label for latex table
-caption_proper = "Reported values of CPO, WAIC, and computational time,
-           for proper model specifications.
-          First column states the model specification.
-          Second column reports the calculated summary statistic of CPO.
-          Third column gives the calculated WAIC for each model.
-          Lastly the computational time is reported in the last column."
-label_proper = "proper-results"
+cat(latex_tabular, file = "cpo_table.tex")
 
 
-#Make table for proper results
-
-#Make latex table
-latex_tabular_proper <- latexTable(tabular(
-    Heading("Model")*RowFactor(Model, levelnames = c("No interaction",
-                                                     "Only interaction",
-                                                     "Full model"),
-                                     nopagebreak = "\\hline",
-                                     spacing = 0)~
-    Heading()*Factor(model_choice, 
-                     levelnames = c("CPO", "WAIC", "Computational time (s)"))*
-    Heading()*value*Heading()*identity,
-  data = proper_results.df),
-  caption = caption_proper,
-  label = label_proper
-)
-latex_tabular_proper
-
-#Save latex table
-cat(latex_tabular_proper, file = "proper_table.tex")
 
 ################################################################################
 
@@ -187,18 +144,18 @@ plot_intercept(RW1_ICAR_fit, proper_base_fit)
 plot_temporal_effects_RW1_RW2(RW1_ICAR_fit, RW2_ICAR_fit, T)
 
 #Plot temporal random effect ar1 + fixed (density fixed, ar1, ar1 + fixed)
-#Save to pdf 9.5 by 3.5
+#Save to pdf 10 by 3
 plot_temporal_ar1(proper_base_fit)
-#plot_temporal_ar1(proper_full_fit)
 
 
-#Plot spatial effects Proper vs improper
+
+#Plot spatial effects Proper vs improper 7.5 by 3.5
 plot_spatial_effects(RW1_ICAR_fit,
                      proper_base_fit, 
                      ohio_map,
                      n)
 
-
+#7.5 by 3.5
 plot_spatial_std(RW1_ICAR_fit,
                  proper_base_fit, 
                  ohio_map,
@@ -208,11 +165,11 @@ plot_spatial_std(RW1_ICAR_fit,
 
 
 #Plot the posterior hyperparameters (should it include RW2?)
-#Plot improper temporal posterior hyperparameters: save to pdf 7.5 by 3.5 
+#Plot improper temporal posterior hyperparameters: save to pdf 10 by 4
 plot_improper_temporal_hyperparameters(RW1_ICAR_fit, RW2_ICAR_fit)
 
 
-#Plot improper spatial posterior hyperparameters: 7 by 3.5
+#Plot improper spatial posterior hyperparameters: 10 by 3.5
 plot_improper_spatial_hyperparameters(RW1_ICAR_fit)
 
 
@@ -224,7 +181,7 @@ plot_proper_temporal_hyperparameter(proper_base_fit, proper_full_fit)
 plot_proper_spatial_hyperparameters(proper_base_fit, proper_full_fit)
 
 
-
+########
 
 #Plot the interactions
 #improper: save to pdf 7.5 by 12.5
@@ -243,7 +200,7 @@ plot_proper_interaction(proper_interaction_fit, proper_full_fit)
 
 
 #Plot hyperparameter for interactions
-#RW1
+#RW1, 7.5 by 3.5
 plot_std_interactions_RW1(RW1_ICAR_I_fit,
                           RW1_ICAR_II_fit,
                           RW1_ICAR_III_fit,
@@ -255,7 +212,7 @@ plot_std_interactions_RW2(RW2_ICAR_I_fit,
                           RW2_ICAR_IV_fit)
 
 
-#Proper: save 10 by 3
+#Proper: save 11.25 by 3.5
 plot_proper_hyperparameters(proper_interaction_fit,
                             proper_full_fit)
 
@@ -290,10 +247,6 @@ for(i in 2:n){
     id_max_range_rate = i
   }
 }
-#print(id_max_avg_rate)
-#print(id_min_avg_rate)
-#print(id_max_range_rate)
-
 
 
 counties = c(id_max_avg_rate, id_min_avg_rate, id_max_range_rate, 4)
@@ -303,10 +256,10 @@ counties = c(id_max_avg_rate, id_min_avg_rate, id_max_range_rate, 4)
 # second frame: county w. smallest average rate
 # third frame: county w. largest range in rate
 # fourth frame: a random county
-# save pdf: 10 by 7.5 
+# save pdf: 12 by 9 
 select_county_timeseries(ohio_df,
                          RW1_ICAR_fit,
-                         RW1_ICAR_II_fit,
+                         RW1_ICAR_IV_fit,
                          proper_interaction_fit,
                          counties,
                          n,
@@ -324,8 +277,12 @@ select_county_timeseries(ohio_df,
 #####
 #Plot the heatmaps of some years (1968, 1973, 1978, 1983, 1988 maybe?) for some models
 #Base model, RW1 type II, RW1 type IV, maybe proper ones
-years_to_plot = c(1968, 1975, 1980, 1988)
 
+
+#Plot heatmaps of predicted values maybe???
+
+years_to_plot = c(1979, 1982, 1985, 1988)
+years_to_plot_id_pred = c(1, 4, 7, 10)
 
 actual = ohio_df
 
@@ -355,8 +312,22 @@ p2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins)
 p3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins)
 p4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins)
 
-ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
-          common.legend = TRUE, legend = "right")
+true_rate_plt <- ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
+                           common.legend = TRUE, legend = "right") + 
+                          theme(plot.margin = margin(0.1,0.1,0.1,0.1, "cm")) 
+
+annotate_figure(true_rate_plt, top = text_grob("True rate pr. 100000", 
+                                     color = "black", size = 14))
+
+
+
+#mean_marg[i] = find_mean_marginal(marginals[year, i])
+#mean_predicted[i] = pop[((year - 1) * n + i)] * mean_marg[i]
+
+
+
+
+
 
 
 #Extract relative risk for base
@@ -414,103 +385,279 @@ plot_fitted_vs_actual_together(ohio_df, RW1_ICAR_fit,
 ############
 ##One-step predictor ...
 
-#Function to use inla.tmarginal in lapply
-
-
-
-
 years_predicted_on <- 12:21
 
-#Extract values for our years and check none are -Inf
+#Extract deaths from years which we predicted on
 values_predicted_on <- ohio_df$deaths[ohio_df$year %in% years_predicted_on]
+
+#Extract population in years predicted on
 pop_in_values_pred_on <- ohio_df$pop_at_risk[ohio_df$year %in% years_predicted_on]
 
 
-#Find CRPS and AE for improper models with RW1
-improper_1_noInt_ae_crps = find_CRPS_ae_all_years(base_predicted, 
+
+
+#Find MAE and RMSE
+improper_1_noInt_MAE_RMSE = find_MAE_RMSE_all_years(base_predicted, 
                                                   pop_in_values_pred_on,
                                                   values_predicted_on)
 
-improper_1_typeI_ae_crps = find_CRPS_ae_all_years(I_predicted, 
+
+#Find IS
+improper_1_IS <- find_IS_all(base_predicted, pop_in_values_pred_on, values_predicted_on)
+
+
+
+improper_1_typeI_MAE_RMSE = find_MAE_RMSE_all_years(I_predicted, 
                                                   pop_in_values_pred_on,
                                                   values_predicted_on)
 
-improper_1_typeII_ae_crps = find_CRPS_ae_all_years(II_predicted, 
+improper_1_typeI_IS <- find_IS_all(I_predicted, pop_in_values_pred_on, values_predicted_on)
+
+
+improper_1_typeII_MAE_RMSE = find_MAE_RMSE_all_years(II_predicted, 
                                                   pop_in_values_pred_on,
                                                   values_predicted_on)
 
-improper_1_typeIII_ae_crps = find_CRPS_ae_all_years(III_predicted, 
+
+improper_1_typeII_IS <- find_IS_all(II_predicted, pop_in_values_pred_on, values_predicted_on)
+
+
+
+improper_1_typeIII_MAE_RMSE = find_MAE_RMSE_all_years(III_predicted, 
                                                   pop_in_values_pred_on,
                                                   values_predicted_on)
 
-improper_1_typeIV_ae_crps = find_CRPS_ae_all_years(IV_predicted, 
+improper_1_typeIII_IS <- find_IS_all(III_predicted, pop_in_values_pred_on, values_predicted_on)
+
+improper_1_typeIV_MAE_RMSE = find_MAE_RMSE_all_years(IV_predicted, 
                                                   pop_in_values_pred_on,
                                                   values_predicted_on)
+
+improper_1_typeIV_IS <- find_IS_all(IV_predicted, pop_in_values_pred_on, values_predicted_on)
 
 #Find CRPS and AE for improper models with RW2
+improper_2_noInt_MAE_RMSE = find_MAE_RMSE_all_years(improper_2_noInt_pred, 
+                                                  pop_in_values_pred_on,
+                                                  values_predicted_on)
+
+improper_2_IS <- find_IS_all(improper_2_noInt_pred, pop_in_values_pred_on, values_predicted_on)
+
+improper_2_typeI_MAE_RMSE = find_MAE_RMSE_all_years(improper_2_I_pred, 
+                                                  pop_in_values_pred_on,
+                                                  values_predicted_on)
+
+improper_2_typeI_IS <- find_IS_all(improper_2_I_pred, pop_in_values_pred_on, values_predicted_on)
+
+improper_2_typeII_MAE_RMSE = find_MAE_RMSE_all_years(improper_2_II_pred, 
+                                                   pop_in_values_pred_on,
+                                                   values_predicted_on)
+
+improper_2_typeII_IS <- find_IS_all(improper_2_II_pred, pop_in_values_pred_on, values_predicted_on)
+
+improper_2_typeIII_MAE_RMSE = find_MAE_RMSE_all_years(improper_2_III_pred, 
+                                                    pop_in_values_pred_on,
+                                                    values_predicted_on)
+
+improper_2_typeIII_IS <- find_IS_all(improper_2_III_pred, pop_in_values_pred_on, values_predicted_on)
+
+improper_2_typeIV_MAE_RMSE = find_MAE_RMSE_all_years(improper_2_IV_pred, 
+                                                   pop_in_values_pred_on,
+                                                   values_predicted_on)
+
+improper_2_typeIV_IS <- find_IS_all(improper_2_IV_pred, pop_in_values_pred_on, values_predicted_on)
 
 
 #Find CRPS and AE for proper models
-proper_noInt_ae_crps <- find_CRPS_ae_all_years(proper_base_predicted,
+proper_noInt_MAE_RMSE <- find_MAE_RMSE_all_years(proper_base_predicted,
                                                pop_in_values_pred_on,
                                                values_predicted_on)
 
-proper_interaction_ae_crps <- find_CRPS_ae_all_years(proper_interaction_predicted,
+proper_noInt_IS <- find_IS_all(proper_base_predicted, pop_in_values_pred_on, values_predicted_on)
+
+proper_interaction_MAE_RMSE <- find_MAE_RMSE_all_years(proper_interaction_predicted,
                                                      pop_in_values_pred_on,
                                                      values_predicted_on)
 
-proper_noInt_ae_crps <- find_CRPS_ae_all_years(proper_base_predicted,
-                                               pop_in_values_pred_on,
-                                               values_predicted_on)
+proper_interaction_IS <- find_IS_all(proper_interaction_predicted, pop_in_values_pred_on, values_predicted_on)
+
+proper_full_MAE_RMSE <- find_MAE_RMSE_all_years(proper_full_predicted,
+                                              pop_in_values_pred_on,
+                                              values_predicted_on)
+
+proper_full_IS <- find_IS_all(proper_full_predicted, pop_in_values_pred_on, values_predicted_on)
 
 
 
 #Create a table with calculated AE and CRPS values
 
-crps.df <- data.frame(Model = rep(c("1", "2", "3", "4", "5",
-                                "6", "7", "8", "9", "10",
-                                "11", "12", "13"), 2),
-                      ae_crps = rep(c("1", "2"), 13),
-                      value = 1:26)
+IS.df <- data.frame(Model = rep(c("Improper 1 noInt",
+                                  "Improper 1 typeI",
+                                  "Improper 1 typeII",
+                                  "Improper 1 typeIII",
+                                  "Improper 1 typeIV",
+                                  "Improper 2 noInt",
+                                  "Improper 2 typeI",
+                                  "Improper 2 typeII",
+                                  "Improper 2 typeIII",
+                                  "Improper 2 typeIV",
+                                  "proper noInt",
+                                  "proper onlyInt",
+                                  "proper full"), 3),
+                      ae_crps = c(rep("MAE", 13), 
+                                  rep("RMSE", 13), 
+                                  rep("IS", 13)),
+                      value = 1:39)
 
-#Model = 1 - 5 = improper_1_noInt - improper_1_typeIV
-#model = 6 - 10 = improper_2_noInt - improper_2_typeIV
-#model = 11 - 13 = proper_noInt - proper_full
-#ae_crps = 1 is absolute error, ae_crps = 2 is CRPS
 
-crps.df$value[crps.df$Model == "1" & crps.df$ae_crps == "1"] = 
+IS.df$value[IS.df$Model == "Improper 1 noInt" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_1_noInt_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 1 noInt" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_1_noInt_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 1 noInt" &
+              IS.df$ae_crps == "IS"] = round(improper_1_IS, 2)
 
 
-#Proper base results
-#proper_results.df$value[proper_results.df$Model == "1" & proper_results.df$model_choice == "1"] = mean(-log(proper_base_fit$cpo$cpo))
+IS.df$value[IS.df$Model == "Improper 1 typeI" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_1_typeI_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 1 typeI" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_1_typeI_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 1 typeI" &
+              IS.df$ae_crps == "IS"] = round(improper_1_typeI_IS, 2)
+
+
+
+IS.df$value[IS.df$Model == "Improper 1 typeII" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_1_typeII_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 1 typeII" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_1_typeII_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 1 typeII" &
+              IS.df$ae_crps == "IS"] = round(improper_1_typeII_IS, 2)
+
+
+IS.df$value[IS.df$Model == "Improper 1 typeIII" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_1_typeIII_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 1 typeIII" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_1_typeIII_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 1 typeIII" &
+              IS.df$ae_crps == "IS"] = round(improper_1_typeIII_IS, 2)
+
+
+
+IS.df$value[IS.df$Model == "Improper 1 typeIV" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_1_typeIV_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 1 typeIV" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_1_typeIV_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 1 typeIV" &
+              IS.df$ae_crps == "IS"] = round(improper_1_typeIV_IS, 2)
+
+
+
+
+IS.df$value[IS.df$Model == "Improper 2 noInt" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_2_noInt_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 2 noInt" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_2_noInt_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 2 noInt" &
+              IS.df$ae_crps == "IS"] = round(improper_2_IS, 2)
+
+
+IS.df$value[IS.df$Model == "Improper 2 typeI" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_2_typeI_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 2 typeI" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_2_typeI_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 2 typeI" &
+              IS.df$ae_crps == "IS"] = round(improper_2_typeI_IS, 2)
+
+
+
+IS.df$value[IS.df$Model == "Improper 2 typeII" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_2_typeII_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 2 typeII" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_2_typeII_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 2 typeII" &
+              IS.df$ae_crps == "IS"] = round(improper_2_typeII_IS, 2)
+
+
+IS.df$value[IS.df$Model == "Improper 2 typeIII" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_2_typeIII_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 2 typeIII" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_2_typeIII_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 2 typeIII" &
+              IS.df$ae_crps == "IS"] = round(improper_2_typeIII_IS, 2)
+
+
+
+IS.df$value[IS.df$Model == "Improper 2 typeIV" &
+              IS.df$ae_crps == "MAE"] = round(mean(improper_2_typeIV_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "Improper 2 typeIV" &
+              IS.df$ae_crps == "RMSE"] = round(mean(improper_2_typeIV_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "Improper 2 typeIV" &
+              IS.df$ae_crps == "IS"] = round(improper_2_typeIV_IS, 2)
+
+
+
+
+
+IS.df$value[IS.df$Model == "proper noInt" &
+              IS.df$ae_crps == "MAE"] = round(mean(proper_noInt_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "proper noInt" &
+              IS.df$ae_crps == "RMSE"] = round(mean(proper_noInt_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "proper noInt" &
+              IS.df$ae_crps == "IS"] = round(proper_noInt_IS, 2)
+
+
+IS.df$value[IS.df$Model == "proper onlyInt" &
+              IS.df$ae_crps == "MAE"] = round(mean(proper_interaction_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "proper onlyInt" &
+              IS.df$ae_crps == "RMSE"] = round(mean(proper_interaction_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "proper onlyInt" &
+              IS.df$ae_crps == "IS"] = round(proper_interaction_IS, 2)
+
+
+IS.df$value[IS.df$Model == "proper full" &
+              IS.df$ae_crps == "MAE"] = round(mean(proper_full_MAE_RMSE$MAE), 2)
+IS.df$value[IS.df$Model == "proper full" &
+              IS.df$ae_crps == "RMSE"] = round(mean(proper_full_MAE_RMSE$RMSE), 2)
+
+IS.df$value[IS.df$Model == "proper full" &
+              IS.df$ae_crps == "IS"] = round(proper_full_IS, 2)
 
 
 
 #Make caption and label for latex table
-caption_crps = "HEIHEI"
-label_crps = "crps-ae"
+caption_IS = "HEIHEI"
+label_IS = "mae-rmse-is"
 
 
 #Make table for proper results
 
 #Make latex table
-latex_tabular_crps <- latexTable(tabular(
-  Heading("Model")*RowFactor(Model, levelnames = c("No interaction",
-                                                   "Only interaction",
-                                                   "Full model"),
+latex_tabular_IS <- latexTable(tabular(
+  Heading("Model")*RowFactor(Model,
                              nopagebreak = "\\hline",
                              spacing = 0)~
-    Heading()*Factor(model_choice, 
-                     levelnames = c("CPO", "WAIC", "Computational time (s)"))*
+    Heading()*Factor(ae_crps)*
     Heading()*value*Heading()*identity,
-  data = crps.df),
-  caption = caption_crps,
-  label = label_crps
+  data = IS.df),
+  caption = caption_IS,
+  label = label_IS
 )
-latex_tabular_crps
+latex_tabular_IS
 
 #Save latex table
-cat(latex_tabular_crps, file = "CRPS_and_AE_table.tex")
+cat(latex_tabular_IS, file = "IS.tex")
 
 
 

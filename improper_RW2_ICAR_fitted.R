@@ -83,6 +83,8 @@ RW2_ICAR_fit <- inla(base_formula, data = ohio_df, family = "poisson",
 time_RW2_ICAR = Sys.time()-ptm
 print(c("Basic model fitted in: ", time_RW2_ICAR))
 
+plot(RW2_ICAR_fit)
+
 ###
 
 #Update base formula to also contain iid interaction

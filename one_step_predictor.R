@@ -165,6 +165,7 @@ for(time in 12:21){ #For loop to sequentially predict one and one year ahead, st
   RW1_ICAR_III_fit <- inla(typeIII_formula,
                            data = temp_ohio,
                            family = "poisson",
+                           E = pop_at_risk,
                            control.predictor = list(compute = TRUE),       #For predictions
                            control.compute = list(config = TRUE, # To see constraints later
                                                   cpo = T,   # For model selection
