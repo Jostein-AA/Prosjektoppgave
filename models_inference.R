@@ -163,7 +163,7 @@ plot_spatial_std(RW1_ICAR_fit,
 
 
 
-
+#####
 #Plot the posterior hyperparameters (should it include RW2?)
 #Plot improper temporal posterior hyperparameters: save to pdf 10 by 4
 plot_improper_temporal_hyperparameters(RW1_ICAR_fit, RW2_ICAR_fit)
@@ -270,7 +270,14 @@ select_county_timeseries(ohio_df,
 
 
 
+#Do the same but for predicted values
 
+predicted_vs_true_select_counties(base_predicted,
+                                  IV_predicted,
+                                  proper_interaction_predicted,
+                                  pop_in_values_pred_on,
+                                  values_predicted_on,
+                                  counties)
 
 
 
@@ -307,26 +314,98 @@ hardcoded_bins = seq(min(actual_n_map$rate) - 0.5,
                      length.out = 8)
 hardcoded_bins = round(hardcoded_bins, 0)
 
-p1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins)
-p2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins)
-p3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins)
-p4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins)
+p1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "True rate: 1979")
+p2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "True rate: 1982")
+p3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "True rate: 1985")
+p4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "True rate: 1988")
 
-true_rate_plt <- ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
-                           common.legend = TRUE, legend = "right") + 
-                          theme(plot.margin = margin(0.1,0.1,0.1,0.1, "cm")) 
-
-annotate_figure(true_rate_plt, top = text_grob("True rate pr. 100000", 
-                                     color = "black", size = 14))
+#Save as 11.25 by 3.5
+ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
+          common.legend = TRUE, legend = "right") 
 
 
-
-#mean_marg[i] = find_mean_marginal(marginals[year, i])
-#mean_predicted[i] = pop[((year - 1) * n + i)] * mean_marg[i]
+#Calculate predicted values for Improper_1_typeIV predictions for these years
 
 
 
+#Find predicted values for Improper_1_typeIV
+predicted_IV_1979 = rep(0, n)
+for(i in 1:n){
+  pred_rate = find_mean_marginal(IV_predicted[1, i])
+  predicted_IV_1979[i] <- pred_rate * 1E5
+}
 
+predicted_IV_1982 = rep(0, n)
+for(i in 1:n){
+  pred_rate = find_mean_marginal(IV_predicted[4, i])
+  predicted_IV_1982[i] <- pred_rate * 1E5
+}
+
+predicted_IV_1985 = rep(0, n)
+for(i in 1:n){
+  pred_rate = find_mean_marginal(IV_predicted[7, i])
+  predicted_IV_1985[i] <- pred_rate * 1E5
+}
+
+predicted_IV_1988 = rep(0, n)
+for(i in 1:n){
+  pred_rate = find_mean_marginal(IV_predicted[10, i])
+  predicted_IV_1988[i] <- pred_rate * 1E5
+}
+
+actual_n_map$rate[actual_n_map$year == 1979] = predicted_IV_1979
+actual_n_map$rate[actual_n_map$year == 1982] = predicted_IV_1982
+actual_n_map$rate[actual_n_map$year == 1985] = predicted_IV_1985
+actual_n_map$rate[actual_n_map$year == 1988] = predicted_IV_1988
+
+
+plt1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Improper_1_typeIV\n one-step prediction 1979")
+plt2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Improper_1_typeIV\n one-step prediction 1982")
+plt3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Improper_1_typeIV\n one-step prediction 1985")
+plt4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Improper_1_typeIV\n one-step prediction 1988")
+
+ggarrange(plt1, plt2, plt3, plt4, ncol = 4, nrow = 1,
+          common.legend = TRUE, legend = "right") 
+
+
+#Find predicted values for Improper_1_typeIV
+predicted_proper_1979 = rep(0, n)
+for(i in 1:n){
+  pred_rate = find_mean_marginal(proper_interaction_predicted[1, i])
+  predicted_proper_1979[i] <- pred_rate * 1E5
+}
+
+predicted_proper_1982 = rep(0, n)
+for(i in 1:n){
+  pred_rate = find_mean_marginal(proper_interaction_predicted[4, i])
+  predicted_proper_1982[i] <- pred_rate * 1E5
+}
+
+predicted_proper_1985 = rep(0, n)
+for(i in 1:n){
+  pred_rate = find_mean_marginal(proper_interaction_predicted[7, i])
+  predicted_proper_1985[i] <- pred_rate * 1E5
+}
+
+predicted_proper_1988 = rep(0, n)
+for(i in 1:n){
+  pred_rate = find_mean_marginal(proper_interaction_predicted[10, i])
+  predicted_proper_1988[i] <- pred_rate * 1E5
+}
+
+actual_n_map$rate[actual_n_map$year == 1979] = predicted_proper_1979
+actual_n_map$rate[actual_n_map$year == 1982] = predicted_proper_1982
+actual_n_map$rate[actual_n_map$year == 1985] = predicted_proper_1985
+actual_n_map$rate[actual_n_map$year == 1988] = predicted_proper_1988
+
+
+plt1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Proper_onlyInt\n one-step prediction 1979")
+plt2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Proper_onlyInt\n one-step prediction 1982")
+plt3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Proper_onlyInt\n one-step prediction 1985")
+plt4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Proper_onlyInt\n one-step prediction 1988")
+
+ggarrange(plt1, plt2, plt3, plt4, ncol = 4, nrow = 1,
+          common.legend = TRUE, legend = "right") 
 
 
 

@@ -183,11 +183,12 @@ find_u_l_single_pred <- function(marginal_lambda, population, n_samples = 5000){
     poisson_samples[i] <- rpois(1, samples_offset[i])
   }
   
-  #Calculate upper and lower quantile
+  #Calculate upper and lower quantile (and median)
   u = as.numeric(quantile(poisson_samples, 0.975))
   l = as.numeric(quantile(poisson_samples, 0.025))
+  marg_median = as.numeric(quantile(poisson_samples, 0.5))
   
-  return(list(l = l, u = u))
+  return(list(l = l, u = u, marg_median = marg_median))
 }
 
 #test = find_u_l_single_pred(base_predicted[1, 1][[1]], pop_in_values_pred_on[1])
@@ -226,7 +227,120 @@ find_IS_all <- function(marginals, population, true_values){
 
 #test = find_IS_all(base_predicted, pop_in_values_pred_on, values_predicted_on)
 
+predicted_vs_true_one_county <- function(predicted_marginal, 
+                                         population, 
+                                         true_values, 
+                                         county,
+                                         xlab,
+                                         ylab,
+                                         n,
+                                         title = TRUE){
+  marg_median = rep(0, 10); l = rep(0, 10); u = rep(0, 10)
+  
+  for(t in 1:10){
+    temp = find_u_l_single_pred(predicted_marginal[t, county][[1]], population[((t - 1) * n + county)])
+    marg_median[t] = temp$marg_median; l[t] = temp$l
+    u[t] = temp$u
+  }
+  
+  years = 1979:1988
+  actually_observed <- true_values[seq(county, length(true_values), by = n)]
+  
+  values.df <- data.frame(years = years, 
+                          true_rate = actually_observed,
+                          fitted_rate = marg_median,
+                          lower_quant = l,
+                          upper_quant = u)
+  
+  if(title){
+    plt <- ggplot(data = values.df, aes(x = years)) + 
+      geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                  fill = "#F8766D", alpha = 0.6) +
+      geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+      geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+      xlab(xlab) + ylab(ylab) + ggtitle(ohio_df[county, ]$name) +
+      labs(col = NULL) +
+      theme_bw() + 
+      theme(axis.title=element_text(size=14))
+  } else {
+    plt <- ggplot(data = values.df, aes(x = years)) + 
+      geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
+                  fill = "#F8766D", alpha = 0.6) +
+      geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
+      geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+      xlab(xlab) + ylab(ylab) +
+      labs(col = NULL) +
+      theme_bw() +
+      theme(axis.title=element_text(size=14))
+  }
+  plt <- plt + scale_color_manual(values=c("#F8766D", "black", "#00BFC4"))
+  return(plt)
+}
 
+predicted_vs_true_one_county(improper_2_III_pred,
+                             pop_in_values_pred_on,
+                             values_predicted_on,
+                             2,
+                             "hei",
+                             "heihei",
+                             n)
+
+
+predicted_vs_true_select_counties <- function(base,
+                                              best_improper,
+                                              best_proper,
+                                              population,
+                                              true_values,
+                                              counties){
+  
+  base_plt_1 <- predicted_vs_true_one_county(base, population,
+                                             true_values, counties[1], "hei", "heihei", n)
+  
+  base_plt_2 <- predicted_vs_true_one_county(base, population,
+                                             true_values, counties[2], "hei", "heihei", n)
+  
+  base_plt_3 <- predicted_vs_true_one_county(base, population,
+                                             true_values, counties[3], "hei", "heihei", n)
+  
+  base_plt_4 <- predicted_vs_true_one_county(base, population,
+                                             true_values, counties[4], "hei", "heihei", n)
+  
+  
+  improper_plt_1 <- predicted_vs_true_one_county(best_improper, population,
+                                             true_values, counties[1], "hei", "heihei", n)
+  
+  improper_plt_2 <- predicted_vs_true_one_county(best_improper, population,
+                                             true_values, counties[2], "hei", "heihei", n)
+  
+  improper_plt_3 <- predicted_vs_true_one_county(best_improper, population,
+                                             true_values, counties[3], "hei", "heihei", n)
+  
+  improper_plt_4 <- predicted_vs_true_one_county(best_improper, population,
+                                             true_values, counties[4], "hei", "heihei", n)
+  
+  
+  proper_plt_1 <- predicted_vs_true_one_county(best_proper, population,
+                                             true_values, counties[1], "hei", "heihei", n)
+  
+  proper_plt_2 <- predicted_vs_true_one_county(best_proper, population,
+                                             true_values, counties[2], "hei", "heihei", n)
+  
+  proper_plt_3 <- predicted_vs_true_one_county(best_proper, population,
+                                             true_values, counties[3], "hei", "heihei", n)
+  
+  proper_plt_4 <- predicted_vs_true_one_county(best_proper, population,
+                                             true_values, counties[4], "hei", "heihei", n)
+  
+  ggarrange(base_plt_1, base_plt_2, base_plt_3, base_plt_4,
+            improper_plt_1, improper_plt_2, improper_plt_3, improper_plt_4,
+            proper_plt_1, proper_plt_2, proper_plt_3, proper_plt_4,
+            ncol = 4, nrow = 3,
+            common.legend = TRUE, legend = "top")
+}
+
+
+predicted_vs_true_select_counties(base_predicted, IV_predicted, proper_interaction_predicted,
+                                  pop_in_values_pred_on, values_predicted_on, counties)
 
 
 #Plot the intercept
@@ -386,6 +500,13 @@ plot_spatial_effects <- function(improper,
   scale_proper = scale_col[seq(1, 30, length.out = 10)]
   
   improper_mean <- improper$summary.random$county$mean[(n+1):(2*n)]
+  #improper$summary.hyperpar (third row precision for county, fourth row phi for county)
+  #Do I in reality have to sample the effects and hyperparameters?
+  
+  improper_mean = improper_mean * sqrt(improper$summary.hyperpar$mean[4]) * 1/sqrt(improper$summary.hyperpar$mean[3])
+  
+  
+  
   proper_mean <- proper$summary.random$county$mean
   
   temp_ohio_map <- map[ ,c("geometry", "NAME")]
@@ -413,7 +534,7 @@ plot_spatial_effects <- function(improper,
   improper_mean_plot <- ggplot(data = temp_ohio_map) + 
                         geom_sf(aes(fill = improper_mean), 
                                 alpha = 1,
-                                color="black") + ggtitle("Mean ICAR") +
+                                color="black") + ggtitle(TeX("Improper_1_noInt: mean $\\theta_{i}$")) +
                         theme(plot.title = element_text(size = 12),
                               axis.title.x = element_blank(), #Remove axis and background grid
                               axis.text = element_blank(),
@@ -437,7 +558,7 @@ plot_spatial_effects <- function(improper,
   proper_mean_plot <- ggplot(data = temp_ohio_map) + 
                       geom_sf(aes(fill = proper_mean), 
                               alpha = 1,
-                              color="black") + ggtitle("Mean CAR") +
+                              color="black") + ggtitle(TeX("Proper_noInt: mean $\\theta_{i}$")) +
                       theme(plot.title = element_text(size = 12),
                             axis.title.x = element_blank(), #Remove axis and background grid
                             axis.text = element_blank(),
@@ -476,6 +597,8 @@ plot_spatial_std <- function(improper,
   
   
   improper_sd <- improper$summary.random$county$sd[(n+1):(2*n)]
+  improper_sd = improper_sd * sqrt(improper$summary.hyperpar$mean[4]) * 1/sqrt(improper$summary.hyperpar$mean[3])
+  
   proper_sd <- proper$summary.random$county$sd
   
   temp_ohio_map <- map[ ,c("geometry", "NAME")]
@@ -505,7 +628,7 @@ plot_spatial_std <- function(improper,
   improper_sd_plot <- ggplot(data = temp_ohio_map) + 
     geom_sf(aes(fill = improper_sd), 
             alpha = 1,
-            color="black") + ggtitle("Standard deviation ICAR") +
+            color="black") + ggtitle(TeX("Improper_1_noInt: Standard deviation $\\theta_{i}$")) +
     theme(plot.title = element_text(size = 12),
           axis.title.x = element_blank(), #Remove axis and background grid
           axis.text = element_blank(),
@@ -528,7 +651,7 @@ plot_spatial_std <- function(improper,
   proper_sd_plot <- ggplot(data = temp_ohio_map) + 
     geom_sf(aes(fill = proper_sd), 
             alpha = 1,
-            color="black") + ggtitle("Standard deviation CAR") +
+            color="black") + ggtitle(TeX("Proper_noInt: Standard deviation $\\theta_{i}$")) +
     theme(plot.title = element_text(size = 12),
           axis.title.x = element_blank(), #Remove axis and background grid
           axis.text = element_blank(),
