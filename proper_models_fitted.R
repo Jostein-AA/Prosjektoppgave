@@ -6,6 +6,7 @@ library(INLA)
 library(spData)
 library(sf)
 library(spdep)
+library(progress) 
 
 #####
 #Load data
@@ -138,12 +139,36 @@ proper_full_fit <- inla(proper_full_formula,
                         control.compute = list(config = TRUE, # To see constraints later
                                                cpo = T,   # For model selection
                                                waic = T), # For model selection
+                        control.inla = list(lincomb.derived.correlation.matrix=TRUE),
                         verbose = T)
 
 time_proper_full = Sys.time()-ptm
 print(c("Proper Full model fitted in: ", time_proper_full))
 #print(mean(-log(proper_full_fit$cpo$cpo)))
 #plot(proper_full_fit)
+
+test_sparsity = FALSE
+if(test_sparsity){ #Check to see if any precision matrix is somewhat dense
+  pb=progress_bar$new(total=as.numeric(dim_matrix[1]**2)) #Progressbar
+  pb$tick(0)
+  
+  test = proper_full_fit$misc$configs
+  testest = test$config
+  
+  dim_matrix = dim(testest[1][[1]]$Q)
+  is_zero_counter = 0
+  for(i in 1:dim_matrix[1]){
+    for(j in 1:dim_matrix[1]){
+      if(testest[1][[1]]$Q[i, j] == 0){
+        is_zero_counter = is_zero_counter + 1
+        pb$tick()
+      }
+    }
+  }
+  print(is_zero_counter)
+  print(is_zero_counter/(as.numeric(dim_matrix[1])**2))
+}
+
 
 #####
 #Save INLA objects

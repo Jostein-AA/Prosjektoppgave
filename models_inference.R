@@ -147,7 +147,11 @@ plot_temporal_effects_RW1_RW2(RW1_ICAR_fit, RW2_ICAR_fit, T)
 #Save to pdf 10 by 3
 plot_temporal_ar1(proper_base_fit)
 
-
+#Save to pdf 7.5 by 6.5
+plot_temporal_effects(RW1_ICAR_fit,
+                      RW2_ICAR_fit,
+                      proper_base_fit,
+                      T)
 
 #Plot spatial effects Proper vs improper 7.5 by 3.5
 plot_spatial_effects(RW1_ICAR_fit,
@@ -269,6 +273,13 @@ select_county_timeseries(ohio_df,
 
 
 
+years_predicted_on <- 12:21
+
+#Extract deaths from years which we predicted on
+values_predicted_on <- ohio_df$deaths[ohio_df$year %in% years_predicted_on]
+
+#Extract population in years predicted on
+pop_in_values_pred_on <- ohio_df$pop_at_risk[ohio_df$year %in% years_predicted_on]
 
 #Do the same but for predicted values
 

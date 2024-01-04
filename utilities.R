@@ -277,13 +277,7 @@ predicted_vs_true_one_county <- function(predicted_marginal,
   return(plt)
 }
 
-predicted_vs_true_one_county(improper_2_III_pred,
-                             pop_in_values_pred_on,
-                             values_predicted_on,
-                             2,
-                             "hei",
-                             "heihei",
-                             n)
+
 
 
 predicted_vs_true_select_counties <- function(base,
@@ -339,8 +333,6 @@ predicted_vs_true_select_counties <- function(base,
 }
 
 
-predicted_vs_true_select_counties(base_predicted, IV_predicted, proper_interaction_predicted,
-                                  pop_in_values_pred_on, values_predicted_on, counties)
 
 
 #Plot the intercept
@@ -478,6 +470,83 @@ plot_temporal_ar1 <- function(proper_base){
   ggarrange(fixed_plot, ar1_plot,                                                 # First row with scatter plot
             ar1_fixed_plot, 
             nrow = 2,  ncol = 2) 
+}
+
+plot_temporal_effects <- function(fitted_RW1,
+                                  fitted_RW2,
+                                  proper_base,
+                                  T){
+  
+  
+  
+  #Format temporal random effects for ggplot
+  
+  
+  years <- 1968:1988
+  #Need to be scaled
+  scaling_factor1 <- sqrt(fitted_RW1$summary.hyperpar$mean[2]) * 1/sqrt(fitted_RW1$summary.hyperpar$mean[1])
+  temporal_RW1.df <- data.frame(years = years)
+  temporal_RW1.df$lower_quant <- fitted_RW1$summary.random$year[(T + 1):(2 * T), 4] * scaling_factor1
+  temporal_RW1.df$median <- fitted_RW1$summary.random$year[(T + 1):(2 * T), 5] * scaling_factor1
+  temporal_RW1.df$upper_quant <- fitted_RW1$summary.random$year[(T + 1):(2 * T), 6] * scaling_factor1
+  
+  scaling_factor2 <- sqrt(fitted_RW2$summary.hyperpar$mean[2]) * 1/sqrt(fitted_RW2$summary.hyperpar$mean[1])
+  temporal_RW2.df <- data.frame(years = years)
+  temporal_RW2.df$lower_quant <- fitted_RW2$summary.random$year[(T + 1):(2 * T), 4] * scaling_factor2
+  temporal_RW2.df$median <- fitted_RW2$summary.random$year[(T + 1):(2 * T), 5] * scaling_factor2
+  temporal_RW2.df$upper_quant <- fitted_RW2$summary.random$year[(T + 1):(2 * T), 6] * scaling_factor2
+  
+  
+  temporal_RW1 <- ggplot(data = temporal_RW1.df, aes(years, median)) + 
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    geom_line() + 
+    geom_line(data = temporal_RW1.df, aes(years, lower_quant), linetype = "dashed") + 
+    geom_line(data = temporal_RW1.df, aes(years, upper_quant), linetype = "dashed") + 
+    xlab("year") + ylab(expression(alpha[t])) +
+    ggtitle(TeX("Improper_1_noInt: $\\alpha_t$")) #"RW1"
+  
+  temporal_RW2 <- ggplot(data = temporal_RW2.df, aes(years, median)) + 
+    theme_bw() +
+    theme(axis.title=element_text(size=14)) +
+    geom_line() + 
+    geom_line(data = temporal_RW2.df, aes(years, lower_quant), linetype = "dashed") + 
+    geom_line(data = temporal_RW2.df, aes(years, upper_quant), linetype = "dashed") + 
+    xlab("year") + ylab(expression(alpha[t])) + 
+    ggtitle(TeX("Improper_2_noInt: $\\alpha_t$"))
+  
+  years_standardized = 1:21
+  ar1.df <- data.frame(year = years,
+                       lower_quant = proper_base$summary.random$year.copy[, 4],
+                       median = proper_base$summary.random$year.copy[, 5],
+                       upper_quant = proper_base$summary.random$year.copy[, 6])
+  
+  beta_mean = proper_base$summary.fixed$mean[2]
+  ar1_fixed_median = ar1.df$median + beta_mean * years_standardized
+  lower_quant = ar1.df$lower_quant + beta_mean * years_standardized
+  upper_quant = ar1.df$upper_quant + beta_mean * years_standardized
+  
+  ar1_fixed.df = data.frame(year = years,
+                            median = ar1_fixed_median,
+                            lower_quant = lower_quant,
+                            upper_quant = upper_quant)
+  
+  ar1_fixed_plot <- ggplot(data = ar1_fixed.df, aes(year, median)) + 
+    theme_bw() + 
+    theme(axis.title=element_text(size=14)) +
+    geom_line() + 
+    geom_line(data = ar1_fixed.df,
+              aes(years, lower_quant), linetype = "dashed") + 
+    geom_line(data = ar1_fixed.df,
+              aes(years, upper_quant), linetype = "dashed") + 
+    xlab("year") + ylab(expression(alpha[t]+beta*t)) + 
+    ggtitle(TeX("Proper_noInt: $\\alpha_t + \\beta t$"))
+  
+  
+  ggarrange(temporal_RW1, temporal_RW2,
+            ar1_fixed_plot, 
+            ncol = 2, nrow = 2)
+  
 }
 
 

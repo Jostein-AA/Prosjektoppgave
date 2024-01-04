@@ -54,21 +54,29 @@ spatial_hyper = list(prec= list(prior = 'pc.prec',
 interaction_hyper = list(theta=list(prior="pc.prec",
                                     param=c(1,0.01)))
 
+#scaled_RW_prec <- inla.scale.model(RW2_prec,
+#                                   list(A = matrix(1, 1, dim(RW2_prec)[1]),
+#                                        e = 0))
+
+
+#eigens <- eigen(scaled_RW_prec)
+#A = t(eigens$vectors[, (nrow(eigens$vectors)-1):nrow(eigens$vectors)])
+#constr.st <- list(A = A, e = rep(0, dim(A)[1]))
+
 #Make the base formula
 base_formula <- deaths ~ 1 + f(year, 
                                model = 'bym2',
                                scale.model = T, 
-                               constr = T, 
-                               rankdef = 2,
+                               constr = T,
+                               #extraconstr = constr.st,
                                graph = RW2_prec,
                                hyper = temporal_hyper) + 
-                             f(county, 
-                               model = 'bym2',
-                               scale.model = T,
-                               constr = T,
-                               rankdef = 1,
-                               graph = ICAR_prec,
-                               hyper = spatial_hyper)
+                            f(county, 
+                              model = 'bym2',
+                              scale.model = T,
+                              constr = T,
+                              graph = ICAR_prec,
+                              hyper = spatial_hyper)
 
 ###
 
@@ -78,11 +86,15 @@ RW2_ICAR_fit <- inla(base_formula, data = ohio_df, family = "poisson",
                      E = pop_at_risk, 
                      control.compute = list(config = TRUE, # To see constraints later
                                             cpo = T,   # For model selection
-                                            waic = T)) # For model selection
+                                            waic = T), # For model selection
+                     inla.mode = "classic",
+                     verbose = TRUE)
 
 time_RW2_ICAR = Sys.time()-ptm
 print(c("Basic model fitted in: ", time_RW2_ICAR))
 
+print(mean(-log(RW2_ICAR_fit$cpo$cpo)))
+print(RW2_ICAR_fit$misc$configs$constr$nc)
 
 ###
 
@@ -95,9 +107,13 @@ ptm <- Sys.time()
 RW2_ICAR_I_fit <- inla(typeI_formula, data = ohio_df, family = 'poisson',
                        E = pop_at_risk, control.compute = list(config = TRUE, 
                                                                cpo = TRUE,    
-                                                               waic = TRUE))
+                                                               waic = TRUE),
+                       inla.mode = "classic",
+                       verbose = TRUE)
 time_RW2_ICAR_I = Sys.time() - ptm
 print(c("Type I model fitted in: ", time_RW2_ICAR_I))
+
+print(mean(-log(RW2_ICAR_I_fit$cpo$cpo)))
 
 
 ###
@@ -120,7 +136,6 @@ typeII_formula <- update(base_formula, ~. + f(space.time,
                                               model = "generic0", 
                                               Cmatrix = typeII_prec, 
                                               extraconstr = typeII_constraints, 
-                                              rankdef = (2 * n),  
                                               hyper = interaction_hyper))
 
 
@@ -129,10 +144,14 @@ ptm <- Sys.time()
 RW2_ICAR_II_fit <- inla(typeII_formula, data = ohio_df, family = "poisson",
                         E = pop_at_risk, control.compute = list(config = TRUE,
                                                                 cpo = TRUE,
-                                                                waic = TRUE))
+                                                                waic = TRUE),
+                        inla.mode = "classic",
+                        verbose = TRUE)
 time_RW2_ICAR_II = Sys.time() - ptm
 print(c("Type II model fitted in: ", time_RW2_ICAR_II))
 
+
+print(mean(-log(RW2_ICAR_II_fit$cpo$cpo)))
 
 ###
 
@@ -153,7 +172,6 @@ typeIII_formula <- update(base_formula, ~. + f(space.time,
                                                model = "generic0", 
                                                Cmatrix = typeIII_prec, 
                                                extraconstr = typeIII_constraints, 
-                                               rankdef = T, 
                                                hyper = interaction_hyper))
 
 
@@ -162,10 +180,14 @@ ptm <- Sys.time()
 RW2_ICAR_III_fit <- inla(typeIII_formula, data = ohio_df, family = "poisson",
                          E = pop_at_risk, control.compute = list(config = TRUE, 
                                                                  cpo = TRUE,
-                                                                 waic = TRUE))
+                                                                 waic = TRUE),
+                         inla.mode = "classic",
+                         verbose = TRUE)
 
 time_RW2_ICAR_III = Sys.time() - ptm
 print(c("Type III model fitted in: ", time_RW2_ICAR_III))
+
+print(mean(-log(RW2_ICAR_III_fit$cpo$cpo)))
 
 
 ###
@@ -177,14 +199,13 @@ typeIV_prec <- scaled_RW_prec %x% scaled_ICAR_prec
 
 #Get constraints for the type III interactions
 typeIV_constraints <- constraints_maker(type = "IV", n = n, t = T,
-                                         rw = "RW2", prec_matrix = typeIV_prec)
+                                        rw = "RW2", prec_matrix = typeIV_prec)
 
 #Get formula for type IV
 typeIV_formula <- update(base_formula, ~. + f(space.time, 
                                               model = "generic0",
                                               Cmatrix = typeIV_prec,
                                               extraconstr = typeIV_constraints,
-                                              rankdef = (2 * n + T - 2), 
                                               hyper = interaction_hyper))
 
 
@@ -192,17 +213,40 @@ ptm <- Sys.time()
 RW2_ICAR_IV_fit <- inla(typeIV_formula, data = ohio_df, family = "poisson",
                         E = pop_at_risk, control.compute = list(config = TRUE, 
                                                                 cpo = TRUE,
-                                                                waic = TRUE))
+                                                                waic = TRUE),
+                        inla.mode = "classic",
+                        verbose = TRUE)
 time_RW2_ICAR_IV = Sys.time() - ptm
 print(c("Type IV model fitted in: ", time_RW2_ICAR_IV))
 
+print(mean(-log(RW2_ICAR_IV_fit$cpo$cpo)))
 
 
-#Save INLA objects
-save(n, T, ohio_map, ohio_df,
-     RW2_ICAR_fit, time_RW2_ICAR,
-     RW2_ICAR_I_fit, time_RW2_ICAR_I,
-     RW2_ICAR_II_fit, time_RW2_ICAR_II,
-     RW2_ICAR_III_fit, time_RW2_ICAR_III,
-     RW2_ICAR_IV_fit, time_RW2_ICAR_IV,
-     file = "improper_RW2_ICAR_fitted.RData")
+test_RW2 <- RW2_ICAR_fit; test_time_RW2 <- time_RW2_ICAR
+test_RW2_I <- RW2_ICAR_I_fit; test_time_RW2 <- time_RW2_ICAR_I
+test_RW2_II <- RW2_ICAR_II_fit; test_time_RW2 <- time_RW2_ICAR_II
+test_RW2_III <- RW2_ICAR_III_fit; test_time_RW2 <- time_RW2_ICAR_III
+test_RW2_IV <- RW2_ICAR_IV_fit; test_time_RW2 <- time_RW2_ICAR_IV
+
+
+save(test_RW2, time_RW2_ICAR,
+     test_RW2_I, time_RW2_ICAR_I,
+     test_RW2_II, time_RW2_ICAR_II,
+     test_RW2_III, time_RW2_ICAR_III,
+     test_RW2_IV, time_RW2_ICAR_IV,
+     file = "test_improper_RW2_ICAR_fitted.RData")
+
+######################
+load("test_improper_RW2_ICAR_fitted.RData")
+plot(test_RW2)
+plot(test_RW2_I)
+plot(test_RW2_II)
+plot(test_RW2_III)
+plot(test_RW2_IV)
+
+print(mean(-log(test_RW2$cpo$cpo)))
+print(mean(-log(test_RW2_I$cpo$cpo)))
+print(mean(-log(test_RW2_II$cpo$cpo)))
+print(mean(-log(test_RW2_III$cpo$cpo)))
+print(mean(-log(test_RW2_IV$cpo$cpo)))
+
