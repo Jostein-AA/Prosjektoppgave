@@ -64,7 +64,7 @@ scale = scale_col[c(3,10,13,18,21,24,27,30)] #Select color scale to be more red
 mean_rate_plot <- ggplot(data = ohio_map) +  
   geom_sf(aes(fill = mean_rate), #Plots rate per 100 000
           alpha = 1,
-          color="black") + ggtitle("Mean rate\n per 100 000") + 
+          color="black") + ggtitle("Average observed rate\n per 100 000") + 
   theme(plot.title = element_text(size = 15),
         axis.title.x = element_blank(), #Remove axis and background grid
         axis.text = element_blank(),
@@ -85,7 +85,7 @@ mean_rate_plot <- ggplot(data = ohio_map) +
 sd_rate_plot <- ggplot(data = ohio_map) +  
   geom_sf(aes(fill = sd_rate), #Plots cases per thousand
           alpha = 1,
-          color="black") + ggtitle("Standard deviation of rate\n per 100 000") + 
+          color="black") + ggtitle("Empirical standard deviation of\n observed rate per 100 000") + 
   theme(plot.title = element_text(size = 15),
         axis.title.x = element_blank(), #Remove axis and background grid
         axis.text = element_blank(),
@@ -197,7 +197,7 @@ ggplot(data = ohio_df,
   geom_line(data = median_curve, 
             aes(x = year, y = median_curve), 
             col = 'black', lwd = 3) +
-  xlab("year") + ylab("rate per 100 000")
+  xlab("year") + ylab("Observed rate per 100 000")
 
 
 

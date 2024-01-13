@@ -147,19 +147,19 @@ plot_temporal_effects_RW1_RW2(RW1_ICAR_fit, RW2_ICAR_fit, T)
 #Save to pdf 10 by 3
 plot_temporal_ar1(proper_base_fit)
 
-#Save to pdf 7.5 by 6.5
+#Save to pdf 11.25 by 3.5
 plot_temporal_effects(RW1_ICAR_fit,
                       RW2_ICAR_fit,
                       proper_base_fit,
                       T)
 
-#Plot spatial effects Proper vs improper 7.5 by 3.5
+#Plot spatial effects Proper vs improper 8 by 3 (was 7.5 by 3.5)
 plot_spatial_effects(RW1_ICAR_fit,
                      proper_base_fit, 
                      ohio_map,
                      n)
 
-#7.5 by 3.5
+#8 by 3
 plot_spatial_std(RW1_ICAR_fit,
                  proper_base_fit, 
                  ohio_map,
@@ -253,7 +253,11 @@ for(i in 2:n){
 }
 
 
-counties = c(id_max_avg_rate, id_min_avg_rate, id_max_range_rate, 4)
+#counties = c(id_max_avg_rate, id_min_avg_rate, id_max_range_rate, 4)
+
+
+
+counties = c(id_max_avg_rate, id_min_avg_rate, 50, 4)
 
 #Produces plot of fitted vs true for
 # first frame: county w. largest average rate
@@ -281,10 +285,16 @@ values_predicted_on <- ohio_df$deaths[ohio_df$year %in% years_predicted_on]
 #Extract population in years predicted on
 pop_in_values_pred_on <- ohio_df$pop_at_risk[ohio_df$year %in% years_predicted_on]
 
-#Do the same but for predicted values
+#Need to add one more to pop-in-values
+pop_in_values_pred_on = c(pop_in_values_pred_on,
+                          pop_in_values_pred_on[(length(pop_in_values_pred_on) - n + 1):length(pop_in_values_pred_on)])
 
+counties = c(id_max_avg_rate, id_min_avg_rate, 75, 3)
+
+#Do the same but for predicted values
+#Save as 12 by 9
 predicted_vs_true_select_counties(base_predicted,
-                                  IV_predicted,
+                                  II_predicted,
                                   proper_interaction_predicted,
                                   pop_in_values_pred_on,
                                   values_predicted_on,
@@ -293,11 +303,166 @@ predicted_vs_true_select_counties(base_predicted,
 
 
 #####
+
+#Plot heatmaps of first year fitted rate
+fitted_values_base_y1 <- RW1_ICAR_fit$summary.fitted.values$mean[1:(88)] * 1E5
+fitted_values_improperIV_y1 <- RW1_ICAR_IV_fit$summary.fitted.values$mean[1:(88)] *1E5
+#Have to sort?
+proper_fitted_sorted <- sort_proper_fitted(proper_interaction_fit$summary.fitted.values, n, T)
+fitted_values_proper_int_y1 <- proper_fitted_sorted$mean[1:(88)] * 1E5
+
+min_base_y1 <- min(fitted_values_base_y1); max_base_y1 <- max(fitted_values_base_y1)
+min_IV_y1 <- min(fitted_values_improperIV_y1); max_IV_y1 <- max(fitted_values_improperIV_y1)
+min_proper_y1 <- min(fitted_values_proper_int_y1); max_proper_y1 <- max(fitted_values_proper_int_y1)
+
+min_all = min(c(min_base_y1, min_IV_y1, min_proper_y1)); max_all = max(c(max_base_y1, max_IV_y1, max_proper_y1))
+hardcoded_bins = seq(min_all - 0.5,
+                     max_all + 0.5,
+                     length.out = 8)
+hardcoded_bins = round(hardcoded_bins, 0)
+
+
+base_map <- ohio_map
+base_map$rate <- fitted_values_base_y1; base_map$year = rep(1968, 88)
+p1 <- case_count_plot_1_year(base_map, 1968, hardcoded_bins, title = "Improper_1_noInt\n Posterior mean rate 1968")
+
+IV_map <- ohio_map
+IV_map$rate <- fitted_values_improperIV_y1; IV_map$year = rep(1968, 88)
+p2 <- case_count_plot_1_year(IV_map, 1968, hardcoded_bins, title = "Improper_1_typeIV\n Posterior mean rate 1968")
+
+proper_map <- ohio_map
+proper_map$rate <- fitted_values_proper_int_y1; proper_map$year = rep(1968, 88)
+p3 <- case_count_plot_1_year(proper_map, 1968, hardcoded_bins, title = "Proper_onlyInt\n Posterior mean rate 1968")
+
+ggarrange(p1, p2, p3, ncol = 3, nrow = 1,
+          common.legend = TRUE, legend = "right")
+
+
+
+
+#Plot heatmap of relative difference in fitted rate from the first to the last year
+fitted_values_base_y2 <- RW1_ICAR_fit$summary.fitted.values$mean[(20 * 88 + 1):(21 * 88)] * 1E5/fitted_values_base_y1
+fitted_values_improperIV_y2 <- RW1_ICAR_IV_fit$summary.fitted.values$mean[(20 * 88 + 1):(21 * 88)] *1E5/fitted_values_improperIV_y1
+#Have to sort?
+proper_fitted_sorted <- sort_proper_fitted(proper_interaction_fit$summary.fitted.values, n, T)
+fitted_values_proper_int_y2 <- proper_fitted_sorted$mean[(20 * 88 + 1):(21 * 88)] * 1E5/fitted_values_proper_int_y1
+
+min_base_y2 <- min(fitted_values_base_y2); max_base_y2 <- max(fitted_values_base_y2)
+min_IV_y2 <- min(fitted_values_improperIV_y2); max_IV_y2 <- max(fitted_values_improperIV_y2)
+min_proper_y2 <- min(fitted_values_proper_int_y2); max_proper_y2 <- max(fitted_values_proper_int_y2)
+
+min_all = min(c(min_base_y2, min_IV_y2, min_proper_y2)); max_all = max(c(max_base_y2, max_IV_y2, max_proper_y2))
+hardcoded_bins = seq(min_all,
+                     max_all,
+                     length.out = 8)
+hardcoded_bins = round(hardcoded_bins, 2)
+
+
+base_map <- ohio_map
+base_map$rate <- fitted_values_base_y2; base_map$year = rep(1988, 88)
+p1 <- case_count_plot_1_year(base_map, 1988, hardcoded_bins, title = "Improper_1_noInt\n Relative change in posterior\n mean rate from 1968 to 1988")
+
+IV_map <- ohio_map
+IV_map$rate <- fitted_values_improperIV_y2; IV_map$year = rep(1988, 88)
+p2 <- case_count_plot_1_year(IV_map, 1988, hardcoded_bins, title = "Improper_1_typeIV\n Relative change in posterior\n mean rate from 1968 to 1988")
+
+proper_map <- ohio_map
+proper_map$rate <- fitted_values_proper_int_y2; proper_map$year = rep(1988, 88)
+p3 <- case_count_plot_1_year(proper_map, 1988, hardcoded_bins, title = "Proper_onlyInt\n Relative change in posterior\n mean rate from 1968 to 1988")
+
+#Save as 11.25 by 3.5: all_counties_relative_change_to_1988
+ggarrange(p1, p2, p3, ncol = 3, nrow = 1,
+          common.legend = TRUE, legend = "right") 
+
+
+
+
+
+#Plot the standard deviations of the fitted rates
+
+
+#Plot heatmaps of first year fitted rate
+fitted_values_base_y1 <- RW1_ICAR_fit$summary.fitted.values$sd[(20 * 88 + 1):(21 * 88)] * 1E5
+fitted_values_improperIV_y1 <- RW1_ICAR_IV_fit$summary.fitted.values$sd[(20 * 88 + 1):(21 * 88)] * 1E5
+#Have to sort?
+proper_fitted_sorted <- sort_proper_fitted(proper_interaction_fit$summary.fitted.values, n, T)
+fitted_values_proper_int_y1 <- proper_fitted_sorted$sd[(20 * 88 + 1):(21 * 88)] * 1E5
+
+min_base_y1 <- min(fitted_values_base_y1); max_base_y1 <- max(fitted_values_base_y1)
+min_IV_y1 <- min(fitted_values_improperIV_y1); max_IV_y1 <- max(fitted_values_improperIV_y1)
+min_proper_y1 <- min(fitted_values_proper_int_y1); max_proper_y1 <- max(fitted_values_proper_int_y1)
+
+min_all = min(c(min_base_y1, min_IV_y1, min_proper_y1)); max_all = max(c(max_base_y1, max_IV_y1, max_proper_y1))
+hardcoded_bins = seq(min_all - 0.1,
+                     max_all + 0.1,
+                     length.out = 8)
+hardcoded_bins = round(hardcoded_bins, 2)
+
+
+base_map <- ohio_map
+base_map$rate <- fitted_values_base_y1; base_map$year = rep(1988, 88)
+p1 <- case_count_plot_1_year(base_map, 1988, hardcoded_bins, title = "Improper_1_noInt\n Std estimated rate\n per 100000 1988")
+
+IV_map <- ohio_map
+IV_map$rate <- fitted_values_improperIV_y1; IV_map$year = rep(1988, 88)
+p2 <- case_count_plot_1_year(IV_map, 1988, hardcoded_bins, title = "Improper_1_typeIV\n Std estimated rate\n per 100000 1988")
+
+proper_map <- ohio_map
+proper_map$rate <- fitted_values_proper_int_y1; proper_map$year = rep(1988, 88)
+p3 <- case_count_plot_1_year(proper_map, 1988, hardcoded_bins, title = "Proper_onlyInt\n Std estimated rate\n per 100000 1988")
+
+#Save as 11.25 by 3.5:
+ggarrange(p1, p2, p3, ncol = 3, nrow = 1,
+          common.legend = TRUE, legend = "right")
+
+
+#Plot heatmaps of first year fitted rate
+fitted_values_base_y1 <- RW1_ICAR_fit$summary.fitted.values$sd[1:(88)] * 1E5
+fitted_values_improperIV_y1 <- RW1_ICAR_IV_fit$summary.fitted.values$sd[1:(88)] * 1E5
+#Have to sort?
+proper_fitted_sorted <- sort_proper_fitted(proper_interaction_fit$summary.fitted.values, n, T)
+fitted_values_proper_int_y1 <- proper_fitted_sorted$sd[1:(88)] * 1E5
+
+min_base_y1 <- min(fitted_values_base_y1); max_base_y1 <- max(fitted_values_base_y1)
+min_IV_y1 <- min(fitted_values_improperIV_y1); max_IV_y1 <- max(fitted_values_improperIV_y1)
+min_proper_y1 <- min(fitted_values_proper_int_y1); max_proper_y1 <- max(fitted_values_proper_int_y1)
+
+min_all = min(c(min_base_y1, min_IV_y1, min_proper_y1)); max_all = max(c(max_base_y1, max_IV_y1, max_proper_y1))
+hardcoded_bins = seq(min_all - 0.1,
+                     max_all + 0.1,
+                     length.out = 8)
+hardcoded_bins = round(hardcoded_bins, 2)
+
+
+base_map <- ohio_map
+base_map$rate <- fitted_values_base_y1; base_map$year = rep(1968, 88)
+p1 <- case_count_plot_1_year(base_map, 1968, hardcoded_bins, title = "Improper_1_noInt\n Std estimated rate\n per 100000 1968")
+
+IV_map <- ohio_map
+IV_map$rate <- fitted_values_improperIV_y1; IV_map$year = rep(1968, 88)
+p2 <- case_count_plot_1_year(IV_map, 1968, hardcoded_bins, title = "Improper_1_typeIV\n Std estimated rate\n per 100000 1968")
+
+proper_map <- ohio_map
+proper_map$rate <- fitted_values_proper_int_y1; proper_map$year = rep(1968, 88)
+p3 <- case_count_plot_1_year(proper_map, 1968, hardcoded_bins, title = "Proper_onlyInt\n Std estimated rate\n per 100000 1968")
+
+#Save as 11.25 by 3.5:
+ggarrange(p1, p2, p3, ncol = 3, nrow = 1,
+          common.legend = TRUE, legend = "right")
+
+
+
+
+
+
+
+
+
+#####
+
 #Plot the heatmaps of some years (1968, 1973, 1978, 1983, 1988 maybe?) for some models
 #Base model, RW1 type II, RW1 type IV, maybe proper ones
 
-
-#Plot heatmaps of predicted values maybe???
 
 years_to_plot = c(1979, 1982, 1985, 1988)
 years_to_plot_id_pred = c(1, 4, 7, 10)
@@ -316,7 +481,7 @@ actual_n_map <- merge(ohio_map, actual,
                       by.x = c("NAME"), by.y = c("name"),
                       all = T, suffixes = T)
 
-#Get death rate per 100 000
+
 actual_n_map$rate <- actual_n_map$rate * 1E5 
 
 #Hardcoded bins
@@ -325,83 +490,114 @@ hardcoded_bins = seq(min(actual_n_map$rate) - 0.5,
                      length.out = 8)
 hardcoded_bins = round(hardcoded_bins, 0)
 
-p1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "True rate: 1979")
-p2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "True rate: 1982")
-p3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "True rate: 1985")
-p4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "True rate: 1988")
+p1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Observed rate: 1979")
+p2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Observed rate: 1982")
+p3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Observed rate: 1985")
+p4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Observed rate: 1988")
 
-#Save as 11.25 by 3.5
+#Save as 13 by 3.5 (was 11.25 by 3.5)
 ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
           common.legend = TRUE, legend = "right") 
 
 
-#Calculate predicted values for Improper_1_typeIV predictions for these years
-
-
-
-#Find predicted values for Improper_1_typeIV
-predicted_IV_1979 = rep(0, n)
+#Calculate predicted values for Improper_1_typeII predictions for these years
+#Find predicted values for Improper_1_typeII
+predicted_II_1979 = rep(0, n)
+predicted_sd_II_1979 = rep(0, n)
 for(i in 1:n){
-  pred_rate = find_mean_marginal(IV_predicted[1, i])
-  predicted_IV_1979[i] <- pred_rate * 1E5
+  pred_rate = find_mean_marginal(II_predicted[1, i])
+  predicted_II_1979[i] <- pred_rate * 1E5
+  predicted_sd_II_1979[i] <- find_sd_per_100000_marginal(II_predicted[1, i])
 }
 
-predicted_IV_1982 = rep(0, n)
+predicted_II_1982 = rep(0, n)
+predicted_sd_II_1982 = rep(0, n)
 for(i in 1:n){
-  pred_rate = find_mean_marginal(IV_predicted[4, i])
-  predicted_IV_1982[i] <- pred_rate * 1E5
+  pred_rate = find_mean_marginal(II_predicted[4, i])
+  predicted_II_1982[i] <- pred_rate * 1E5
+  predicted_sd_II_1982[i] <- find_sd_per_100000_marginal(II_predicted[4, i])
 }
 
-predicted_IV_1985 = rep(0, n)
+predicted_II_1985 = rep(0, n)
+predicted_sd_II_1985 = rep(0, n)
 for(i in 1:n){
-  pred_rate = find_mean_marginal(IV_predicted[7, i])
-  predicted_IV_1985[i] <- pred_rate * 1E5
+  pred_rate = find_mean_marginal(II_predicted[7, i])
+  predicted_II_1985[i] <- pred_rate * 1E5
+  predicted_sd_II_1985[i] <- find_sd_per_100000_marginal(II_predicted[7, i])
 }
 
-predicted_IV_1988 = rep(0, n)
+predicted_II_1988 = rep(0, n)
+predicted_sd_II_1988 = rep(0, n)
 for(i in 1:n){
-  pred_rate = find_mean_marginal(IV_predicted[10, i])
-  predicted_IV_1988[i] <- pred_rate * 1E5
+  pred_rate = find_mean_marginal(II_predicted[10, i])
+  predicted_II_1988[i] <- pred_rate * 1E5
+  predicted_sd_II_1988[i] <- find_sd_per_100000_marginal(II_predicted[10, i])
 }
 
-actual_n_map$rate[actual_n_map$year == 1979] = predicted_IV_1979
-actual_n_map$rate[actual_n_map$year == 1982] = predicted_IV_1982
-actual_n_map$rate[actual_n_map$year == 1985] = predicted_IV_1985
-actual_n_map$rate[actual_n_map$year == 1988] = predicted_IV_1988
+actual_n_map$rate[actual_n_map$year == 1979] = predicted_II_1979
+actual_n_map$rate[actual_n_map$year == 1982] = predicted_II_1982
+actual_n_map$rate[actual_n_map$year == 1985] = predicted_II_1985
+actual_n_map$rate[actual_n_map$year == 1988] = predicted_II_1988
 
 
-plt1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Improper_1_typeIV\n one-step prediction 1979")
-plt2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Improper_1_typeIV\n one-step prediction 1982")
-plt3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Improper_1_typeIV\n one-step prediction 1985")
-plt4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Improper_1_typeIV\n one-step prediction 1988")
+plt1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Improper_1_typeII\n predicted rate 1979")
+plt2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Improper_1_typeII\n predicted rate 1982")
+plt3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Improper_1_typeII\n predicted rate 1985")
+plt4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Improper_1_typeII\n predicted rate 1988")
 
+#Save as 13 by 3.5
 ggarrange(plt1, plt2, plt3, plt4, ncol = 4, nrow = 1,
           common.legend = TRUE, legend = "right") 
 
 
-#Find predicted values for Improper_1_typeIV
+actual_n_map$rate[actual_n_map$year == 1979] = predicted_sd_II_1979
+actual_n_map$rate[actual_n_map$year == 1982] = predicted_sd_II_1982
+actual_n_map$rate[actual_n_map$year == 1985] = predicted_sd_II_1985
+actual_n_map$rate[actual_n_map$year == 1988] = predicted_sd_II_1988
+
+hardcoded_bins = round(seq(min(actual_n_map$rate), max(actual_n_map$rate), length.out = 8), 2)
+
+plt1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Improper_1_typeII\n std predicted rate\n 1979")
+plt2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Improper_1_typeII\n std predicted rate\n 1982")
+plt3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Improper_1_typeII\n std predicted rate\n 1985")
+plt4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Improper_1_typeII\n std predicted rate\n 1988")
+
+#Save as 13 by 3.5
+ggarrange(plt1, plt2, plt3, plt4, ncol = 4, nrow = 1,
+          common.legend = TRUE, legend = "right") 
+
+
+#Find predicted values for Proper_onlyInt
 predicted_proper_1979 = rep(0, n)
+predicted_sd_proper_1979 = rep(0, n)
 for(i in 1:n){
   pred_rate = find_mean_marginal(proper_interaction_predicted[1, i])
   predicted_proper_1979[i] <- pred_rate * 1E5
+  predicted_sd_proper_1979[i] <- find_sd_per_100000_marginal(proper_interaction_predicted[1, i])
 }
 
 predicted_proper_1982 = rep(0, n)
+predicted_sd_proper_1982 = rep(0, n)
 for(i in 1:n){
   pred_rate = find_mean_marginal(proper_interaction_predicted[4, i])
   predicted_proper_1982[i] <- pred_rate * 1E5
+  predicted_sd_proper_1982[i] <- find_sd_per_100000_marginal(proper_interaction_predicted[4, i])
 }
 
 predicted_proper_1985 = rep(0, n)
+predicted_sd_proper_1985 = rep(0, n)
 for(i in 1:n){
   pred_rate = find_mean_marginal(proper_interaction_predicted[7, i])
   predicted_proper_1985[i] <- pred_rate * 1E5
+  predicted_sd_proper_1985[i] <- find_sd_per_100000_marginal(proper_interaction_predicted[7, i])
 }
 
 predicted_proper_1988 = rep(0, n)
+predicted_sd_proper_1988 = rep(0, n)
 for(i in 1:n){
   pred_rate = find_mean_marginal(proper_interaction_predicted[10, i])
   predicted_proper_1988[i] <- pred_rate * 1E5
+  predicted_sd_proper_1988[i] <- find_sd_per_100000_marginal(proper_interaction_predicted[10, i])
 }
 
 actual_n_map$rate[actual_n_map$year == 1979] = predicted_proper_1979
@@ -410,44 +606,35 @@ actual_n_map$rate[actual_n_map$year == 1985] = predicted_proper_1985
 actual_n_map$rate[actual_n_map$year == 1988] = predicted_proper_1988
 
 
-plt1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Proper_onlyInt\n one-step prediction 1979")
-plt2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Proper_onlyInt\n one-step prediction 1982")
-plt3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Proper_onlyInt\n one-step prediction 1985")
-plt4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Proper_onlyInt\n one-step prediction 1988")
+plt1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Proper_onlyInt\n predicted rate 1979")
+plt2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Proper_onlyInt\n predicted rate 1982")
+plt3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Proper_onlyInt\n predicted rate 1985")
+plt4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Proper_onlyInt\n predicted rate 1988")
 
+#Save as 13 by 3.5
+ggarrange(plt1, plt2, plt3, plt4, ncol = 4, nrow = 1,
+          common.legend = TRUE, legend = "right") 
+
+actual_n_map$rate[actual_n_map$year == 1979] = predicted_sd_proper_1979
+actual_n_map$rate[actual_n_map$year == 1982] = predicted_sd_proper_1982
+actual_n_map$rate[actual_n_map$year == 1985] = predicted_sd_proper_1985
+actual_n_map$rate[actual_n_map$year == 1988] = predicted_sd_proper_1988
+
+hardcoded_bins = round(seq(min(actual_n_map$rate), max(actual_n_map$rate), length.out = 8), 2)
+
+plt1 <- case_count_plot_1_year(actual_n_map, years_to_plot[1], hardcoded_bins, title = "Proper_onlyInt\n std predicted rate\n 1979")
+plt2 <- case_count_plot_1_year(actual_n_map, years_to_plot[2], hardcoded_bins, title = "Proper_onlyInt\n std predicted rate\n 1982")
+plt3 <- case_count_plot_1_year(actual_n_map, years_to_plot[3], hardcoded_bins, title = "Proper_onlyInt\n std predicted rate\n 1985")
+plt4 <- case_count_plot_1_year(actual_n_map, years_to_plot[4], hardcoded_bins, title = "Proper_onlyInt\n std predicted rate\n 1988")
+
+#Save as 13 by 3.5
 ggarrange(plt1, plt2, plt3, plt4, ncol = 4, nrow = 1,
           common.legend = TRUE, legend = "right") 
 
 
 
-#Extract relative risk for base
-#years_1_21 <- c(1, 8, 13, 21)
-fitted_values_base_y1 <- RW1_ICAR_fit$summary.fitted.values$mean[1:(88)] * 1E5
-fitted_values_base_y2 <- RW1_ICAR_fit$summary.fitted.values$mean[(7 * 88 + 1):(8 * 88)] * 1E5
-fitted_values_base_y3 <- RW1_ICAR_fit$summary.fitted.values$mean[(12 * 88 + 1):(13 * 88)] * 1E5
-fitted_values_base_y4 <- RW1_ICAR_fit$summary.fitted.values$mean[(20 * 88 + 1):(21 * 88)] * 1E5
-min1 <- min(fitted_values_base_y1); min2 <- min(fitted_values_base_y2); min3<- min(fitted_values_base_y3); min4<- min(fitted_values_base_y4)
-max1 <- max(fitted_values_base_y1); max2 <- max(fitted_values_base_y2); max3<- max(fitted_values_base_y3); max4<- max(fitted_values_base_y4)
-#hardcoded_bins <- seq(min(min1, min2, min3, min4) - 1,
-#                      max(max1, max2, max3, max4) + 1,
-#                      length.out = 8)
-#hardcoded_bins = round(hardcoded_bins, 0)
 
-base_map <- ohio_map
-base_map$rate <- fitted_values_base_y1; base_map$year = rep(1968, 88)
-p1 <- case_count_plot_1_year(base_map, years_to_plot[1], hardcoded_bins)
 
-base_map$rate <- fitted_values_base_y2; base_map$year = rep(1975, 88)
-p2 <- case_count_plot_1_year(base_map, years_to_plot[2], hardcoded_bins)
-
-base_map$rate <- fitted_values_base_y3; base_map$year = rep(1980, 88)
-p3 <- case_count_plot_1_year(base_map, years_to_plot[3], hardcoded_bins)
-
-base_map$rate <- fitted_values_base_y4; base_map$year = rep(1988, 88)
-p4 <- case_count_plot_1_year(base_map, years_to_plot[4], hardcoded_bins)
-
-ggarrange(p1, p2, p3, p4, ncol = 4, nrow = 1,
-          common.legend = TRUE, legend = "right")
 
 #####
 #Violin plots of the relative risk
@@ -483,7 +670,7 @@ values_predicted_on <- ohio_df$deaths[ohio_df$year %in% years_predicted_on]
 #Extract population in years predicted on
 pop_in_values_pred_on <- ohio_df$pop_at_risk[ohio_df$year %in% years_predicted_on]
 
-
+#May have to remove one additional year from the predicted values 
 
 
 #Find MAE and RMSE

@@ -113,6 +113,10 @@ find_var_marginal <- function(marginal){
   return(var(marginal[[1]][, 1]))
 }
 
+find_sd_per_100000_marginal <- function(marginal){
+  return(sd(marginal[[1]][, 1] * 1E5))
+}
+
 #Function used to go from linear predictor marginal to fitted rate marginal
 my_inla_t_marginal <- function(prediction_marginal){
   #a function to use inla.tmarginal on several values at once
@@ -235,20 +239,22 @@ predicted_vs_true_one_county <- function(predicted_marginal,
                                          ylab,
                                          n,
                                          title = TRUE){
-  marg_median = rep(0, 10); l = rep(0, 10); u = rep(0, 10)
+  marg_median = rep(0, 11); l = rep(0, 11); u = rep(0, 11)
   
-  for(t in 1:10){
+  for(t in 1:11){
     temp = find_u_l_single_pred(predicted_marginal[t, county][[1]], population[((t - 1) * n + county)])
     marg_median[t] = temp$marg_median; l[t] = temp$l
     u[t] = temp$u
   }
   
-  years = 1979:1988
+  years = 1979:1989
   actually_observed <- true_values[seq(county, length(true_values), by = n)]
   
+  actually_observed = c(actually_observed, NA)
+  
   values.df <- data.frame(years = years, 
-                          true_rate = actually_observed,
-                          fitted_rate = marg_median,
+                          true_death_count = actually_observed,
+                          predicted_death_count = marg_median,
                           lower_quant = l,
                           upper_quant = u)
   
@@ -256,22 +262,24 @@ predicted_vs_true_one_county <- function(predicted_marginal,
     plt <- ggplot(data = values.df, aes(x = years)) + 
       geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
                   fill = "#F8766D", alpha = 0.6) +
-      geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-      geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+      geom_line(aes(x = years, y = predicted_death_count, col = "Predicted count")) +
+      geom_point(aes(x = years, y = true_death_count, col = "True count")) + 
       xlab(xlab) + ylab(ylab) + ggtitle(ohio_df[county, ]$name) +
       labs(col = NULL) +
       theme_bw() + 
-      theme(axis.title=element_text(size=14))
+      theme(axis.title=element_text(size=14)) + 
+      scale_x_continuous(breaks=c(1980,1983,1986,1989))
   } else {
     plt <- ggplot(data = values.df, aes(x = years)) + 
       geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
                   fill = "#F8766D", alpha = 0.6) +
-      geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-      geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+      geom_line(aes(x = years, y = predicted_death_count, col = "Predicted count")) +
+      geom_point(aes(x = years, y = true_death_count, col = "True count")) + 
       xlab(xlab) + ylab(ylab) +
       labs(col = NULL) +
       theme_bw() +
-      theme(axis.title=element_text(size=14))
+      theme(axis.title=element_text(size=14)) +
+      scale_x_continuous(breaks=c(1980,1983,1986,1989))
   }
   plt <- plt + scale_color_manual(values=c("#F8766D", "black", "#00BFC4"))
   return(plt)
@@ -288,42 +296,42 @@ predicted_vs_true_select_counties <- function(base,
                                               counties){
   
   base_plt_1 <- predicted_vs_true_one_county(base, population,
-                                             true_values, counties[1], "hei", "heihei", n)
+                                             true_values, counties[1], NULL, "#deaths", n)
   
   base_plt_2 <- predicted_vs_true_one_county(base, population,
-                                             true_values, counties[2], "hei", "heihei", n)
+                                             true_values, counties[2], NULL, NULL, n)
   
   base_plt_3 <- predicted_vs_true_one_county(base, population,
-                                             true_values, counties[3], "hei", "heihei", n)
+                                             true_values, counties[3], NULL, NULL, n)
   
   base_plt_4 <- predicted_vs_true_one_county(base, population,
-                                             true_values, counties[4], "hei", "heihei", n)
+                                             true_values, counties[4], NULL, NULL, n)
   
   
   improper_plt_1 <- predicted_vs_true_one_county(best_improper, population,
-                                             true_values, counties[1], "hei", "heihei", n)
+                                             true_values, counties[1], NULL, "#deaths", n, title = F)
   
   improper_plt_2 <- predicted_vs_true_one_county(best_improper, population,
-                                             true_values, counties[2], "hei", "heihei", n)
+                                             true_values, counties[2], NULL, NULL, n, title = F)
   
   improper_plt_3 <- predicted_vs_true_one_county(best_improper, population,
-                                             true_values, counties[3], "hei", "heihei", n)
+                                             true_values, counties[3], NULL, NULL, n, title = F)
   
   improper_plt_4 <- predicted_vs_true_one_county(best_improper, population,
-                                             true_values, counties[4], "hei", "heihei", n)
+                                             true_values, counties[4], NULL, NULL, n, title = F)
   
   
   proper_plt_1 <- predicted_vs_true_one_county(best_proper, population,
-                                             true_values, counties[1], "hei", "heihei", n)
+                                             true_values, counties[1], "year", "#deaths", n, title = F)
   
   proper_plt_2 <- predicted_vs_true_one_county(best_proper, population,
-                                             true_values, counties[2], "hei", "heihei", n)
+                                             true_values, counties[2], "year", NULL, n, title = F)
   
   proper_plt_3 <- predicted_vs_true_one_county(best_proper, population,
-                                             true_values, counties[3], "hei", "heihei", n)
+                                             true_values, counties[3], "year", NULL, n, title = F)
   
   proper_plt_4 <- predicted_vs_true_one_county(best_proper, population,
-                                             true_values, counties[4], "hei", "heihei", n)
+                                             true_values, counties[4], "year", NULL, n, title = F)
   
   ggarrange(base_plt_1, base_plt_2, base_plt_3, base_plt_4,
             improper_plt_1, improper_plt_2, improper_plt_3, improper_plt_4,
@@ -481,7 +489,6 @@ plot_temporal_effects <- function(fitted_RW1,
   
   #Format temporal random effects for ggplot
   
-  
   years <- 1968:1988
   #Need to be scaled
   scaling_factor1 <- sqrt(fitted_RW1$summary.hyperpar$mean[2]) * 1/sqrt(fitted_RW1$summary.hyperpar$mean[1])
@@ -499,7 +506,9 @@ plot_temporal_effects <- function(fitted_RW1,
   
   temporal_RW1 <- ggplot(data = temporal_RW1.df, aes(years, median)) + 
     theme_bw() +
-    theme(axis.title=element_text(size=14)) +
+    theme(axis.title=element_text(size=14),
+          axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10)) +
     geom_line() + 
     geom_line(data = temporal_RW1.df, aes(years, lower_quant), linetype = "dashed") + 
     geom_line(data = temporal_RW1.df, aes(years, upper_quant), linetype = "dashed") + 
@@ -508,7 +517,9 @@ plot_temporal_effects <- function(fitted_RW1,
   
   temporal_RW2 <- ggplot(data = temporal_RW2.df, aes(years, median)) + 
     theme_bw() +
-    theme(axis.title=element_text(size=14)) +
+    theme(axis.title=element_text(size=14),
+          axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10)) +
     geom_line() + 
     geom_line(data = temporal_RW2.df, aes(years, lower_quant), linetype = "dashed") + 
     geom_line(data = temporal_RW2.df, aes(years, upper_quant), linetype = "dashed") + 
@@ -533,7 +544,9 @@ plot_temporal_effects <- function(fitted_RW1,
   
   ar1_fixed_plot <- ggplot(data = ar1_fixed.df, aes(year, median)) + 
     theme_bw() + 
-    theme(axis.title=element_text(size=14)) +
+    theme(axis.title=element_text(size=14),
+          axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10)) +
     geom_line() + 
     geom_line(data = ar1_fixed.df,
               aes(years, lower_quant), linetype = "dashed") + 
@@ -545,7 +558,7 @@ plot_temporal_effects <- function(fitted_RW1,
   
   ggarrange(temporal_RW1, temporal_RW2,
             ar1_fixed_plot, 
-            ncol = 2, nrow = 2)
+            ncol = 3, nrow = 1)
   
 }
 
@@ -603,7 +616,7 @@ plot_spatial_effects <- function(improper,
   improper_mean_plot <- ggplot(data = temp_ohio_map) + 
                         geom_sf(aes(fill = improper_mean), 
                                 alpha = 1,
-                                color="black") + ggtitle(TeX("Improper_1_noInt: mean $\\theta_{i}$")) +
+                                color="black") + ggtitle(TeX("Improper_1_noInt: Posterior mean $\\theta_{i}$")) +
                         theme(plot.title = element_text(size = 12),
                               axis.title.x = element_blank(), #Remove axis and background grid
                               axis.text = element_blank(),
@@ -627,7 +640,7 @@ plot_spatial_effects <- function(improper,
   proper_mean_plot <- ggplot(data = temp_ohio_map) + 
                       geom_sf(aes(fill = proper_mean), 
                               alpha = 1,
-                              color="black") + ggtitle(TeX("Proper_noInt: mean $\\theta_{i}$")) +
+                              color="black") + ggtitle(TeX("Proper_noInt: Posterior mean $\\theta_{i}$")) +
                       theme(plot.title = element_text(size = 12),
                             axis.title.x = element_blank(), #Remove axis and background grid
                             axis.text = element_blank(),
@@ -697,7 +710,7 @@ plot_spatial_std <- function(improper,
   improper_sd_plot <- ggplot(data = temp_ohio_map) + 
     geom_sf(aes(fill = improper_sd), 
             alpha = 1,
-            color="black") + ggtitle(TeX("Improper_1_noInt: Standard deviation $\\theta_{i}$")) +
+            color="black") + ggtitle(TeX("Posterior standard deviation $\\theta_{i}$")) +
     theme(plot.title = element_text(size = 12),
           axis.title.x = element_blank(), #Remove axis and background grid
           axis.text = element_blank(),
@@ -720,7 +733,7 @@ plot_spatial_std <- function(improper,
   proper_sd_plot <- ggplot(data = temp_ohio_map) + 
     geom_sf(aes(fill = proper_sd), 
             alpha = 1,
-            color="black") + ggtitle(TeX("Proper_noInt: Standard deviation $\\theta_{i}$")) +
+            color="black") + ggtitle(TeX("Posterior standard deviation $\\theta_{i}$")) +
     theme(plot.title = element_text(size = 12),
           axis.title.x = element_blank(), #Remove axis and background grid
           axis.text = element_blank(),
@@ -1484,18 +1497,19 @@ county_time_series <- function(actual,
   plt <- ggplot(data = values.df, aes(x = years)) + 
           geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
                       fill = "#F8766D", alpha = 0.6) +
-          geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-          geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+          geom_line(aes(x = years, y = fitted_rate, col = "Posterior median rate")) +
+          geom_point(aes(x = years, y = true_rate, col = "Rate observed")) + 
           xlab(xlab) + ylab(ylab) + ggtitle(actual[county, ]$name) +
           labs(col = NULL) +
           theme_bw() + 
-          theme(axis.title=element_text(size=14))
+          theme(axis.title=element_text(size=14),
+                plot.title = element_text(size=14))
   } else {
     plt <- ggplot(data = values.df, aes(x = years)) + 
       geom_ribbon(aes(x = years, ymin = lower_quant, ymax = upper_quant, col = "95% CI"), 
                   fill = "#F8766D", alpha = 0.6) +
-      geom_line(aes(x = years, y = fitted_rate, col = "Fitted rate")) +
-      geom_point(aes(x = years, y = true_rate, col = "True rate")) + 
+      geom_line(aes(x = years, y = fitted_rate, col = "Posterior median rate")) +
+      geom_point(aes(x = years, y = true_rate, col = "Rate observed")) + 
       xlab(xlab) + ylab(ylab) +
       labs(col = NULL) +
       theme_bw() +
@@ -1551,7 +1565,7 @@ case_count_plot_1_year <- function(sf_data,
                                    hardcoded_bins,
                                    title){
   scale_col = heat.colors(30, rev=TRUE) #Divide color gradient into 30 
-  scale = scale_col[c(3,10,13,18,21,24,27,30)] #Select color scale to be more red
+  scale = scale_col[c(3,7,11,15,18,21,24,30)] #Select color scale to be more red
   #scale = heat.colors(8, rev= TRUE)
   
   p <- ggplot(data = sf_data[sf_data$year == year, ]) + 
@@ -1578,8 +1592,6 @@ case_count_plot_1_year <- function(sf_data,
         breaks = hardcoded_bins,
         limits = c(0, 100),
         guide = "colorscale")
-  
-  
   return(p)
 }
 

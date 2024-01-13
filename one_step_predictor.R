@@ -62,190 +62,201 @@ interaction_hyper = list(theta=list(prior="pc.prec",
 ####
 #Improper models fitted
 ptm <- Sys.time()
-for(time in 12:21){ #For loop to sequentially predict one and one year ahead, start at year = 11, and go until end
-  temp_ohio = ohio_df[ohio_df$year<= time, ] #Extract data in year 1:time
-  temp_ohio[temp_ohio$year == time, ]$deaths = NA
+for(time in 12:22){ #For loop to sequentially predict one and one year ahead, start at year = 11, and go until end
+  if(time < 22){
+    temp_ohio = ohio_df[ohio_df$year<= time, ] #Extract data in year 1:time
+    temp_ohio[temp_ohio$year == time, ]$deaths = NA
+  } else {
+    #Add one more year
+    temp_ohio = ohio_df
+    last_observed_year = ohio_df[ohio_df$year == 21, ]
+    to_add = last_observed_year
+    to_add$deaths = NA; to_add$year = 22
+    
+    temp_ohio = rbind(temp_ohio, to_add)
+  }
   
-  #make RW1 prec for these years
-  RW1_prec <- INLA:::inla.rw(n = time, order = 1, 
-                             scale.model = FALSE, # set scale.model  = F because we'll scale in the formula
-                             sparse = TRUE)
-   
-  #Make the base formula
-  base_formula <- deaths ~ 1 + f(year, 
-                                 model = 'bym2',
-                                 scale.model = T, 
-                                 constr = T, 
-                                 rankdef = 1,
-                                 graph = RW1_prec,
-                                 hyper = temporal_hyper) + 
-                               f(county, 
-                                 model = 'bym2',
-                                 scale.model = T,
-                                 constr = T,
-                                 rankdef = 1,
-                                 graph = ICAR_prec,
-                                 hyper = spatial_hyper)
-  
-  base_fit <- inla(base_formula, 
-                   data = temp_ohio,
-                   family = "poisson",
-                   E = pop_at_risk, 
-                   control.predictor = list(compute = TRUE),       #For predictions
-                   control.compute = list(config = TRUE, # To see constraints later
-                                          cpo = T,   # For model selection
-                                          waic = T,  # For model selection
-                                          return.marginals.predictor=TRUE)) #For predictions
-  
-  print("base")
-  
-  
-  #Update base formula to also contain iid interaction
-  typeI_formula <- update(base_formula,  ~. + f(space.time,
-                                                model="iid", #Has to be iid, whole point
-                                                hyper = interaction_hyper ))
-  
-  
-  RW1_ICAR_I_fit <- inla(typeI_formula,
-                         data = temp_ohio,
-                         family = 'poisson',
-                         E = pop_at_risk,
-                         control.predictor = list(compute = TRUE),       #For predictions
-                         control.compute = list(config = TRUE, # To see constraints later
-                                                cpo = T,   # For model selection
-                                                waic = T,  # For model selection
-                                                return.marginals.predictor=TRUE)) #For predictions
-  print("I")
-  
-  typeII_constraints = constraints_maker(type = "II", n = n, t = time)
-  
-  #Scale precision matrix of RW model so the geometric mean of the marginal variances is one
-  scaled_RW_prec <- inla.scale.model(RW1_prec,
-                                     list(A = matrix(1, 1, dim(RW1_prec)[1]),
-                                          e = 0))
-  #Get precision matric for type II interaction by Kronecker product
-  typeII_prec <- scaled_RW_prec %x% diag(n)
-  
-  typeII_formula <- update(base_formula, ~. + f(space.time, 
-                                                model = "generic0", 
-                                                Cmatrix = typeII_prec, 
-                                                extraconstr = typeII_constraints, 
-                                                rankdef = n, 
-                                                hyper = interaction_hyper))
-  
-  
-  RW1_ICAR_II_fit <- inla(typeII_formula,
-                          data = temp_ohio,
-                          family = "poisson",
-                          E = pop_at_risk, 
-                          control.predictor = list(compute = TRUE),       #For predictions
-                          control.compute = list(config = TRUE, # To see constraints later
-                                                 cpo = T,   # For model selection
-                                                 waic = T,  # For model selection
-                                                 return.marginals.predictor=TRUE)) #For predictions
-  print("II")
-  
-  
-  #Get constraints for the type III interactions
-  typeIII_constraints <- constraints_maker(type = "III", n = n, t = time)
-  
-  
-  # Kronecker product between IID x ICAR
-  typeIII_prec <- diag(time) %x% scaled_ICAR_prec 
-  
-  typeIII_formula <- update(base_formula, ~. + f(space.time, 
-                                                 model = "generic0", 
-                                                 Cmatrix = typeIII_prec, 
-                                                 extraconstr = typeIII_constraints, 
-                                                 rankdef = time, 
-                                                 hyper = interaction_hyper))
-  
-  
-  
-  RW1_ICAR_III_fit <- inla(typeIII_formula,
+    #make RW1 prec for these years
+    RW1_prec <- INLA:::inla.rw(n = time, order = 1, 
+                               scale.model = FALSE, # set scale.model  = F because we'll scale in the formula
+                               sparse = TRUE)
+     
+    #Make the base formula
+    base_formula <- deaths ~ 1 + f(year, 
+                                   model = 'bym2',
+                                   scale.model = T, 
+                                   constr = T, 
+                                   rankdef = 1,
+                                   graph = RW1_prec,
+                                   hyper = temporal_hyper) + 
+                                 f(county, 
+                                   model = 'bym2',
+                                   scale.model = T,
+                                   constr = T,
+                                   rankdef = 1,
+                                   graph = ICAR_prec,
+                                   hyper = spatial_hyper)
+    
+    base_fit <- inla(base_formula, 
+                     data = temp_ohio,
+                     family = "poisson",
+                     E = pop_at_risk, 
+                     control.predictor = list(compute = TRUE),       #For predictions
+                     control.compute = list(config = TRUE, # To see constraints later
+                                            cpo = T,   # For model selection
+                                            waic = T,  # For model selection
+                                            return.marginals.predictor=TRUE)) #For predictions
+    
+    print("base")
+    
+    
+    #Update base formula to also contain iid interaction
+    typeI_formula <- update(base_formula,  ~. + f(space.time,
+                                                  model="iid", #Has to be iid, whole point
+                                                  hyper = interaction_hyper ))
+    
+    
+    RW1_ICAR_I_fit <- inla(typeI_formula,
                            data = temp_ohio,
-                           family = "poisson",
+                           family = 'poisson',
                            E = pop_at_risk,
                            control.predictor = list(compute = TRUE),       #For predictions
                            control.compute = list(config = TRUE, # To see constraints later
                                                   cpo = T,   # For model selection
                                                   waic = T,  # For model selection
                                                   return.marginals.predictor=TRUE)) #For predictions
-  
-  print("III")
-  
-  typeIV_constraints <- constraints_maker(type = "IV", n = n, t = time)
-  
-  #Get type IV interaction precision matrix
-  typeIV_prec <- scaled_RW_prec %x% scaled_ICAR_prec
-  
-  #Get formula for type IV
-  typeIV_formula <- update(base_formula, ~. + f(space.time, 
-                                                model = "generic0",
-                                                Cmatrix = typeIV_prec,
-                                                extraconstr = typeIV_constraints,
-                                                rankdef = (n + time - 1), 
-                                                hyper = interaction_hyper))
-  
-  
-  RW1_ICAR_IV_fit <- inla(typeIV_formula,
-                          data = temp_ohio,
-                          family = "poisson",
-                          E = pop_at_risk,
-                          control.predictor = list(compute = TRUE),       #For predictions
-                          control.compute = list(config = TRUE, # To see constraints later
-                                                 cpo = T,   # For model selection
-                                                 waic = T,  # For model selection
-                                                 return.marginals.predictor=TRUE)) #For predictions
-  
-  print("IV")
-  
-  
-  #base_predicted = lapply(base_prediction_marginals, FUN = my_inla_t_marginal)
-  #I_predicted = lapply(I_prediction_marginals, FUN = my_inla_t_marginal)
-  #II_predicted = lapply(II_prediction_marginals, FUN = my_inla_t_marginal)
-  #III_predicted = lapply(III_prediction_marginals, FUN = my_inla_t_marginal)
-  #IV_predicted = lapply(IV_prediction_marginals, FUN = my_inla_t_marginal)
-  
-  #Extract marginal of linear predictor predictive distribution
-  #Save the linear predictor marginals because this is what we will use for CRPS
-  base_prediction_marginals = lapply(base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
-                                     FUN = my_inla_t_marginal) #base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)] 
-  I_prediction_marginals =    lapply(RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
-                                     FUN = my_inla_t_marginal)#RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  II_prediction_marginals =   lapply(RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
-                                     FUN = my_inla_t_marginal)#RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  III_prediction_marginals =  lapply(RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
-                                     FUN = my_inla_t_marginal)#RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  IV_prediction_marginals =   lapply(RW1_ICAR_IV_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
-                                     FUN = my_inla_t_marginal)#RW1_ICAR_IV_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
-  
-  if(time == 12){
-    base_predicted = base_prediction_marginals
-    I_predicted    = I_prediction_marginals
-    II_predicted   = II_prediction_marginals
-    III_predicted  = III_prediction_marginals
-    IV_predicted   = IV_prediction_marginals
+    print("I")
+    
+    typeII_constraints = constraints_maker(type = "II", n = n, t = time)
+    
+    #Scale precision matrix of RW model so the geometric mean of the marginal variances is one
+    scaled_RW_prec <- inla.scale.model(RW1_prec,
+                                       list(A = matrix(1, 1, dim(RW1_prec)[1]),
+                                            e = 0))
+    #Get precision matric for type II interaction by Kronecker product
+    typeII_prec <- scaled_RW_prec %x% diag(n)
+    
+    typeII_formula <- update(base_formula, ~. + f(space.time, 
+                                                  model = "generic0", 
+                                                  Cmatrix = typeII_prec, 
+                                                  extraconstr = typeII_constraints, 
+                                                  rankdef = n, 
+                                                  hyper = interaction_hyper))
     
     
-  } else {
-    base_predicted = rbind(base_predicted,
-                           base_prediction_marginals)
+    RW1_ICAR_II_fit <- inla(typeII_formula,
+                            data = temp_ohio,
+                            family = "poisson",
+                            E = pop_at_risk, 
+                            control.predictor = list(compute = TRUE),       #For predictions
+                            control.compute = list(config = TRUE, # To see constraints later
+                                                   cpo = T,   # For model selection
+                                                   waic = T,  # For model selection
+                                                   return.marginals.predictor=TRUE)) #For predictions
+    print("II")
     
-    I_predicted = rbind(I_predicted,
-                        I_prediction_marginals)
     
-    II_predicted = rbind(II_predicted,
-                         II_prediction_marginals)
+    #Get constraints for the type III interactions
+    typeIII_constraints <- constraints_maker(type = "III", n = n, t = time)
     
-    III_predicted = rbind(III_predicted,
-                          III_prediction_marginals)
     
-    IV_predicted = rbind(IV_predicted,
-                         IV_prediction_marginals)
-  }
-  
-  print(paste("Predicted for time: ", time, "/ Time used so far: ", Sys.time() - ptm))
+    # Kronecker product between IID x ICAR
+    typeIII_prec <- diag(time) %x% scaled_ICAR_prec 
+    
+    typeIII_formula <- update(base_formula, ~. + f(space.time, 
+                                                   model = "generic0", 
+                                                   Cmatrix = typeIII_prec, 
+                                                   extraconstr = typeIII_constraints, 
+                                                   rankdef = time, 
+                                                   hyper = interaction_hyper))
+    
+    
+    
+    RW1_ICAR_III_fit <- inla(typeIII_formula,
+                             data = temp_ohio,
+                             family = "poisson",
+                             E = pop_at_risk,
+                             control.predictor = list(compute = TRUE),       #For predictions
+                             control.compute = list(config = TRUE, # To see constraints later
+                                                    cpo = T,   # For model selection
+                                                    waic = T,  # For model selection
+                                                    return.marginals.predictor=TRUE)) #For predictions
+    
+    print("III")
+    
+    typeIV_constraints <- constraints_maker(type = "IV", n = n, t = time)
+    
+    #Get type IV interaction precision matrix
+    typeIV_prec <- scaled_RW_prec %x% scaled_ICAR_prec
+    
+    #Get formula for type IV
+    typeIV_formula <- update(base_formula, ~. + f(space.time, 
+                                                  model = "generic0",
+                                                  Cmatrix = typeIV_prec,
+                                                  extraconstr = typeIV_constraints,
+                                                  rankdef = (n + time - 1), 
+                                                  hyper = interaction_hyper))
+    
+    
+    RW1_ICAR_IV_fit <- inla(typeIV_formula,
+                            data = temp_ohio,
+                            family = "poisson",
+                            E = pop_at_risk,
+                            control.predictor = list(compute = TRUE),       #For predictions
+                            control.compute = list(config = TRUE, # To see constraints later
+                                                   cpo = T,   # For model selection
+                                                   waic = T,  # For model selection
+                                                   return.marginals.predictor=TRUE)) #For predictions
+    
+    print("IV")
+    
+    
+    #base_predicted = lapply(base_prediction_marginals, FUN = my_inla_t_marginal)
+    #I_predicted = lapply(I_prediction_marginals, FUN = my_inla_t_marginal)
+    #II_predicted = lapply(II_prediction_marginals, FUN = my_inla_t_marginal)
+    #III_predicted = lapply(III_prediction_marginals, FUN = my_inla_t_marginal)
+    #IV_predicted = lapply(IV_prediction_marginals, FUN = my_inla_t_marginal)
+    
+    #Extract marginal of linear predictor predictive distribution
+    #Save the linear predictor marginals because this is what we will use for CRPS
+    base_prediction_marginals = lapply(base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                       FUN = my_inla_t_marginal) #base_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)] 
+    I_prediction_marginals =    lapply(RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                       FUN = my_inla_t_marginal)#RW1_ICAR_I_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+    II_prediction_marginals =   lapply(RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                       FUN = my_inla_t_marginal)#RW1_ICAR_II_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+    III_prediction_marginals =  lapply(RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                       FUN = my_inla_t_marginal)#RW1_ICAR_III_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+    IV_prediction_marginals =   lapply(RW1_ICAR_IV_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)],
+                                       FUN = my_inla_t_marginal)#RW1_ICAR_IV_fit$marginals.fitted.values[(n * (time - 1) + 1):(n * time)]
+    
+    if(time == 12){
+      base_predicted = base_prediction_marginals
+      I_predicted    = I_prediction_marginals
+      II_predicted   = II_prediction_marginals
+      III_predicted  = III_prediction_marginals
+      IV_predicted   = IV_prediction_marginals
+      
+      
+    } else {
+      base_predicted = rbind(base_predicted,
+                             base_prediction_marginals)
+      
+      I_predicted = rbind(I_predicted,
+                          I_prediction_marginals)
+      
+      II_predicted = rbind(II_predicted,
+                           II_prediction_marginals)
+      
+      III_predicted = rbind(III_predicted,
+                            III_prediction_marginals)
+      
+      IV_predicted = rbind(IV_predicted,
+                           IV_prediction_marginals)
+    }
+    
+    print(paste("Predicted for time: ", time, "/ Time used so far: ", Sys.time() - ptm))
+
 }
 print(paste("Time used on predicting improper models: ", Sys.time() - ptm))
 
@@ -254,10 +265,18 @@ print(paste("Time used on predicting improper models: ", Sys.time() - ptm))
 #Proper models now
 ohio_df_changed <- ohio_df
 
+#Add one last year not actually observed
+last_year_observed = ohio_df[ohio_df$year == 21, ]
+to_add = last_year_observed
+to_add$deaths = NA; to_add$year = 22
+
+ohio_df_changed = rbind(ohio_df_changed, to_add)
+
+
 #Firstly, switch ordering from year over county, to county over year
 #This is done for the sake of the space time interaction in this model
 ohio_df_changed = ohio_df_changed[order(ohio_df_changed$county, decreasing = F), ] 
-ohio_df_changed$space.time <- 1:(n *T); rownames(ohio_df_changed) <- 1:nrow(ohio_df_changed) 
+rownames(ohio_df_changed) <- 1:nrow(ohio_df_changed) 
 
 #Make copies of county and year.
 #It is done because both year and county is used twice in some formulas
@@ -300,7 +319,7 @@ spatial_hyper_full = list(prec= list(prior = 'pc.prec',
 
 
 ptm <- Sys.time()
-for(time in 12:21){ #For loop to sequentially predict one and one year ahead, start at year = 11, and go until end
+for(time in 12:22){ #For loop to sequentially predict one and one year ahead, start at year = 11, and go until end
   temp_ohio = ohio_df_changed[ohio_df_changed$year <= time, ] #Extract data in year 1:time
   temp_ohio[temp_ohio$year == time, ]$deaths = NA; rownames(temp_ohio) <- 1:nrow(temp_ohio)
   
